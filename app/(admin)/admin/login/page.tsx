@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { loginAction } from "./actions";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -22,16 +21,35 @@ function LoginForm() {
     setError(null);
     setLoading(true);
     try {
-      const res = await loginAction(email, password, callbackUrl);
-      if (!res.ok) {
-        setError(res.error ?? "이메일 또는 비밀번호가 올바르지 않습니다.");
+      const csrfRes = await fetch("/api/auth/csrf");
+      const { csrfToken } = await csrfRes.json();
+      const res = await fetch("/api/auth/callback/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+          csrfToken,
+          callbackUrl,
+          json: true,
+        }),
+        redirect: "manual",
+      });
+      const location = res.headers.get("Location");
+      if (res.status === 302 && location && !location.includes("error=")) {
+        window.location.href = location;
         return;
       }
-      if (res.url) {
-        window.location.href = res.url;
-      } else {
-        window.location.href = callbackUrl;
+      if (res.status === 302 && location?.includes("CredentialsSignin")) {
+        setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+        return;
       }
+      const data = res.headers.get("Content-Type")?.includes("json") ? await res.json().catch(() => ({})) : {};
+      if (data?.url && !data.url.includes("error=")) {
+        window.location.href = data.url;
+        return;
+      }
+      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
     } catch {
       setError("로그인 중 오류가 발생했습니다.");
     } finally {
