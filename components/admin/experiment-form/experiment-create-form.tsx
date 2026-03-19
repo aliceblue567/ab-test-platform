@@ -71,9 +71,24 @@ export function ExperimentCreateForm() {
     });
 
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
+      const code = err?.code;
+      const status = res.status;
+
+      if (status === 401 || code === "UNAUTHORIZED") {
+        form.setError("root", {
+          message: "로그인이 필요합니다. 실험을 생성하려면 먼저 로그인해주세요.",
+        });
+        return;
+      }
+      if (status === 409 || code === "CONFLICT") {
+        form.setError("root", {
+          message: "이미 사용 중인 실험 코드입니다. 실험 이름을 변경해주세요.",
+        });
+        return;
+      }
       form.setError("root", {
-        message: err.error ?? "저장에 실패했습니다.",
+        message: err?.error ?? "저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
       });
       return;
     }
@@ -86,8 +101,23 @@ export function ExperimentCreateForm() {
     <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         {form.formState.errors.root && (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
-            {form.formState.errors.root.message}
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 space-y-3">
+            <p className="font-medium text-destructive">
+              {form.formState.errors.root.message}
+            </p>
+            {form.formState.errors.root.message?.includes("로그인이 필요합니다") && (
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>이 오류는 다음 경우에 발생합니다:</p>
+                <ul className="list-disc list-inside ml-2">
+                  <li>로그인하지 않은 상태에서 실험 생성 버튼을 눌렀을 때</li>
+                  <li>로그인 세션이 만료되었을 때</li>
+                </ul>
+                <p className="mt-2">해결 방법: 먼저 로그인한 후 다시 시도해주세요.</p>
+                <Button asChild variant="outline" size="sm" className="mt-2">
+                  <a href="/admin/login?callbackUrl=/admin/planner">로그인하기</a>
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

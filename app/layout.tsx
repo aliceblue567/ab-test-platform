@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthSessionProvider } from "@/components/providers/session-provider";
 
 export const metadata: Metadata = {
   title: "A/B Test Platform",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="dark" suppressHydrationWarning>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AuthSessionProvider>{children}</AuthSessionProvider>
+      </body>
     </html>
   );
 }
