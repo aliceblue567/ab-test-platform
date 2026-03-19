@@ -37,13 +37,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         const norm = (s: string) => s.trim().replace(/\r?\n/g, "");
-        const inputEmail = norm(String(credentials?.email ?? "")).toLowerCase();
-        const inputPassword = norm(String(credentials?.password ?? ""));
-
         const envEmail = norm(process.env.AUTH_ADMIN_EMAIL ?? "").toLowerCase();
         const envPassword = norm(process.env.AUTH_ADMIN_PASSWORD ?? "");
 
-        // AUTH_DEBUG=true 시 테스트 로그인 (배포 환경: Production/Preview 둘 다 확인)
+        // credentials 키 대소문자 무관 (email/Email 등)
+        const creds = credentials as Record<string, unknown>;
+        const inputEmail = norm(String(creds?.email ?? creds?.Email ?? "")).toLowerCase();
+        const inputPassword = norm(String(creds?.password ?? creds?.Password ?? ""));
+
+        // AUTH_DEBUG=true 시 테스트 로그인
         const debugBypass =
           process.env.AUTH_DEBUG === "true" &&
           inputEmail === "debug@abtest.com" &&

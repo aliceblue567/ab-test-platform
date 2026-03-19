@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { loginAction } from "./actions";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -22,21 +22,14 @@ function LoginForm() {
     setError(null);
     setLoading(true);
     try {
-      const res = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-        callbackUrl,
-      });
-      if (res?.error) {
-        const msg =
-          res.error === "DB_ERROR" || res.error?.includes("DB")
-            ? "데이터베이스 연결 오류입니다. DATABASE_URL을 확인해주세요."
-            : "이메일 또는 비밀번호가 올바르지 않습니다.";
-        setError(msg);
+      const res = await loginAction(email, password, callbackUrl);
+      if (!res.ok) {
+        setError(res.error ?? "이메일 또는 비밀번호가 올바르지 않습니다.");
         return;
       }
-      if (res?.ok) {
+      if (res.url) {
+        window.location.href = res.url;
+      } else {
         window.location.href = callbackUrl;
       }
     } catch {
