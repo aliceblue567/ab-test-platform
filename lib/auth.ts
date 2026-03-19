@@ -37,13 +37,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         try {
-          const email = process.env.AUTH_ADMIN_EMAIL;
-          const password = process.env.AUTH_ADMIN_PASSWORD;
+          const email = process.env.AUTH_ADMIN_EMAIL?.trim();
+          const password = process.env.AUTH_ADMIN_PASSWORD?.trim();
           if (!email || !password) return null;
-          if (
-            credentials?.email === email &&
-            credentials?.password === password
-          ) {
+          const inputEmail = String(credentials?.email ?? "").trim();
+          const inputPassword = String(credentials?.password ?? "").trim();
+          if (inputEmail === email && inputPassword === password) {
             let user = await prisma.user.findUnique({ where: { email } });
             if (!user) {
               user = await prisma.user.create({
