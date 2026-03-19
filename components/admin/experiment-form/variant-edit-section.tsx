@@ -1,35 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useFormContext, useFieldArray } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronUp, Upload, Link2, ImageIcon } from "lucide-react";
 import type { EditExperimentFormValues } from "./experiment-edit-form-schema";
 
 function getVariantLabel(index: number): string {
   return index === 0 ? "시안 A" : index === 1 ? "시안 B" : `시안 ${index + 1}`;
 }
 
+type PayloadFields = "title" | "subtitle" | "ctaLabel" | "figmaUrl" | "imageUrl";
+
 function VariantEditCard({ index }: { index: number }) {
   const { register, watch, setValue, formState: { errors } } =
     useFormContext<EditExperimentFormValues>();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const payloadJson = watch(`variants.${index}.payloadJson`);
-  let payload: { title?: string; subtitle?: string; ctaLabel?: string } = {};
+  let payload: {
+    title?: string;
+    subtitle?: string;
+    ctaLabel?: string;
+    figmaUrl?: string;
+    imageUrl?: string;
+  } = {};
   try {
     payload = JSON.parse(payloadJson || "{}");
   } catch {
     // ignore
   }
 
-  const updatePayloadFromFields = (
-    field: "title" | "subtitle" | "ctaLabel",
-    value: string
-  ) => {
+  const updatePayloadFromFields = (field: PayloadFields, value: string) => {
     try {
       const parsed = JSON.parse(payloadJson || "{}");
       parsed[field] = value;
@@ -39,6 +48,51 @@ function VariantEditCard({ index }: { index: number }) {
         `variants.${index}.payloadJson`,
         JSON.stringify({ [field]: value })
       );
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        updatePayloadFromFields("imageUrl", data.url);
+        e.target.value = "";
+        return;
+      }
+      if (res.status === 503 && data.code === "BLOB_NOT_CONFIGURED") {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          if (dataUrl.length < 45000 && file.size < 50 * 1024) {
+            updatePayloadFromFields("imageUrl", dataUrl);
+          } else {
+            setUploadError("이미지가 너무 큽니다. 50KB 이하로 줄이거나, Vercel Blob Storage를 설정해주세요.");
+          }
+          setUploading(false);
+        };
+        reader.onerror = () => {
+          setUploadError("파일 읽기 실패");
+          setUploading(false);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+      setUploadError(data.error ?? "업로드 실패");
+    } catch {
+      setUploadError("업로드 중 오류가 발생했습니다");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -111,6 +165,70 @@ function VariantEditCard({ index }: { index: number }) {
               value={payload.ctaLabel ?? ""}
               onChange={(e) => updatePayloadFromFields("ctaLabel", e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-muted-foreground flex items-center gap-2">
+              <Link2 className="h-4 w-4" />
+              Figma 프로토타입
+            </Label>
+            <Input
+              placeholder="예: https://www.figma.com/proto/..."
+              value={payload.figmaUrl ?? ""}
+              onChange={(e) => updatePayloadFromFields("figmaUrl", e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Figma 공유 링크(프로토타입)를 붙여넣으세요.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-muted-foreground flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              시안 이미지
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="이미지 URL 또는 파일 업로드"
+                value={payload.imageUrl ?? ""}
+                onChange={(e) => {
+                  setUploadError(null);
+                  updatePayloadFromFields("imageUrl", e.target.value);
+                }}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                title="파일 업로드 (PNG, JPG)"
+              >
+                <Upload className="h-4 w-4" />
+              </Button>
+            </div>
+            {uploadError && (
+              <p className="text-xs text-destructive">{uploadError}</p>
+            )}
+            {uploading && (
+              <p className="text-xs text-muted-foreground">업로드 중...</p>
+            )}
+            {payload.imageUrl && (
+              <div className="mt-2 rounded-lg overflow-hidden border border-border max-w-[200px]">
+                <img
+                  src={payload.imageUrl}
+                  alt="시안 미리보기"
+                  className="w-full h-auto object-contain"
+                />
+              </div>
+            )}
           </div>
         </div>
 

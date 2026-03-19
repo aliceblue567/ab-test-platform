@@ -24,6 +24,12 @@ export function LandingRenderer({
   const subtitle = payload.subtitle;
   const cards = Array.isArray(payload.cards) ? payload.cards : [];
   const cta = payload.cta;
+  const figmaUrl = payload.figmaUrl;
+  const imageUrl = payload.imageUrl;
+
+  const figmaEmbedUrl = figmaUrl
+    ? `https://www.figma.com/embed?embed_host=share&url=${encodeURIComponent(figmaUrl)}`
+    : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-12">
@@ -33,6 +39,31 @@ export function LandingRenderer({
           <p className="mt-2 text-muted-foreground">{subtitle}</p>
         )}
       </header>
+
+      {imageUrl && (
+        <section className="flex justify-center">
+          <div className="rounded-lg overflow-hidden border border-border w-full max-w-xl">
+            <img
+              src={imageUrl}
+              alt="시안"
+              className="w-full h-auto object-contain"
+            />
+          </div>
+        </section>
+      )}
+
+      {figmaEmbedUrl && (
+        <section className="w-full">
+          <div className="rounded-lg overflow-hidden border border-border aspect-video">
+            <iframe
+              src={figmaEmbedUrl}
+              allowFullScreen
+              className="w-full h-full min-h-[400px]"
+              title="Figma 프로토타입"
+            />
+          </div>
+        </section>
+      )}
 
       {cards.length > 0 && (
         <section className="grid gap-4 sm:grid-cols-2">

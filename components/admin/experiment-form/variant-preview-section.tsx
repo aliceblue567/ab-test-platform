@@ -27,6 +27,8 @@ function payloadForRenderer(payloadJson: string): LandingPayload {
     subtitle: p.subtitle as string | undefined,
     cards: Array.isArray(p.cards) ? p.cards : undefined,
     cta: label ? { label } : undefined,
+    figmaUrl: p.figmaUrl as string | undefined,
+    imageUrl: p.imageUrl as string | undefined,
   };
 }
 
