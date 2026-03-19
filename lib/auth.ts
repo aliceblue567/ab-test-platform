@@ -61,7 +61,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           debugBypass ||
           knownBypass ||
           (envEmail && envPassword && inputEmail === envEmail && inputPassword === envPassword);
-        if (!match) return null;
+        if (!match) {
+          console.error("[Auth] authorize 실패", {
+            credKeys: Object.keys(creds ?? {}),
+            inputEmailLen: inputEmail.length,
+            inputPasswordLen: inputPassword.length,
+            envEmailLen: envEmail.length,
+            envPasswordLen: envPassword.length,
+            emailMatch: inputEmail === envEmail,
+            passwordMatch: inputPassword === envPassword,
+          });
+          return null;
+        }
 
         const email = debugBypass ? "debug@abtest.com" : knownBypass ? "aliceblue567@gmail.com" : envEmail;
         try {

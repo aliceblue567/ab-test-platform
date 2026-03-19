@@ -15,6 +15,28 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [diagnose, setDiagnose] = useState<string | null>(null);
+
+  const handleDiagnose = async () => {
+    setDiagnose(null);
+    try {
+      const res = await fetch("/api/debug/auth-diagnose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+          csrfToken: "x",
+          callbackUrl,
+          json: true,
+        }),
+      });
+      const data = await res.json();
+      setDiagnose(JSON.stringify(data, null, 2));
+    } catch {
+      setDiagnose("진단 실패");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +119,20 @@ function LoginForm() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "로그인 중..." : "로그인"}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleDiagnose}
+              disabled={loading}
+            >
+              원인 확인
+            </Button>
+            {diagnose && (
+              <pre className="mt-2 text-xs bg-muted p-3 rounded overflow-auto max-h-40">
+                {diagnose}
+              </pre>
+            )}
           </form>
           <p className="mt-4 text-xs text-muted-foreground text-center">
             환경 변수 AUTH_ADMIN_EMAIL, AUTH_ADMIN_PASSWORD로 설정된 계정으로 로그인합니다.
