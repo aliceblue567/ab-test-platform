@@ -1,0 +1,217 @@
+// A/B 테스트 플랫폼 - Prisma Schema
+// PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ Enums ============
+
+enum UserRole {
+  admin
+  viewer
+}
+
+enum ExperimentStatus {
+  draft
+  running
+  paused
+  completed
+}
+
+enum VariantKey {
+  control
+  variant_a
+  variant_b
+}
+
+// ============ User ============
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(admin)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============ Experiment ============
+
+model Experiment {
+  id                String           @id @default(cuid())
+  key               String           @unique
+  name              String
+  description       String?          @db.Text
+  primaryGoalKey    String?          @map("primary_goal_key")
+  primaryGoalCustom String?          @db.Text @map("primary_goal_custom")
+  status            ExperimentStatus @default(draft)
+  trafficAllocation Int              @default(100)
+  startAt           DateTime?
+  endAt             DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  variants        Variant[]
+  assignments     Assignment[]
+  eventLogs       EventLog[]
+  reportSnapshots ReportSnapshot[]
+  auditLogs       AuditLog[]
+
+  @@index([status, key])
+  @@map("experiments")
+}
+
+// ============ Variant ============
+
+model Variant {
+  id           String    @id @default(cuid())
+  experimentId String
+  key          VariantKey
+  name         String
+  weight       Int       @default(50)
+  payload      Json
+  isControl    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  experiment   Experiment   @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  assignments  Assignment[]
+
+  @@unique([experimentId, key])
+  @@index([experimentId])
+  @@map("variants")
+}
+
+// ============ Assignment ============
+
+model Assignment {
+  id           String   @id @default(cuid())
+  experimentId String   @map("experiment_id")
+  variantId    String   @map("variant_id")
+  variantKey   String   @map("variant_key")
+  userKey      String   @map("user_key")
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  experiment Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  variant    Variant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([experimentId, userKey])
+  @@index([experimentId])
+  @@index([userKey])
+  @@map("assignments")
+}
+
+// ============ EventLog ============
+
+model EventLog {
+  id           String   @id @default(cuid())
+  experimentId String   @map("experiment_id")
+  variantKey   String   @map("variant_key")
+  userKey      String   @map("user_key")
+  sessionKey   String?  @map("session_key")
+  eventName    String   @map("event_name")
+  eventValue   Float?   @map("event_value")
+  eventProps   Json?    @map("event_props")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  experiment Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+
+  @@index([experimentId, variantKey, eventName])
+  @@index([experimentId, userKey])
+  @@index([createdAt])
+  @@map("event_logs")
+}
+
+// ============ ReportSnapshot ============
+
+model ReportSnapshot {
+  id             String   @id @default(cuid())
+  experimentId   String
+  variantId      String
+  variantKey     String
+  uniqueUsers    Int
+  totalEvents    Int
+  conversionRate Float?
+  uplift         Float?
+  confidence     Float?
+  winner         Boolean  @default(false)
+  snapshotAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  experiment Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+
+  @@index([experimentId])
+  @@map("report_snapshots")
+}
+
+// ============ AuditLog ============
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  entityType   String
+  entityId     String
+  action       String
+  oldValue     Json?
+  newValue     Json?
+  experimentId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  experiment Experiment? @relation(fields: [experimentId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
