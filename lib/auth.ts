@@ -9,9 +9,14 @@ import { prisma } from "@/lib/db";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  secret:
+    process.env.AUTH_SECRET ||
+    (process.env.NODE_ENV === "development" ? "dev-secret-replace-in-production" : undefined),
+  trustHost: true,
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   pages: {
     signIn: "/admin/login",
+    error: "/admin/auth-error",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -31,26 +36,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "비밀번호", type: "password" },
       },
       async authorize(credentials) {
-        const email = process.env.AUTH_ADMIN_EMAIL;
-        const password = process.env.AUTH_ADMIN_PASSWORD;
-        if (!email || !password) return null;
-        if (
-          credentials?.email === email &&
-          credentials?.password === password
-        ) {
-          let user = await prisma.user.findUnique({ where: { email } });
-          if (!user) {
-            user = await prisma.user.create({
-              data: {
-                email,
-                name: "관리자",
-                role: "admin",
-              },
-            });
+        try {
+          const email = process.env.AUTH_ADMIN_EMAIL;
+          const password = process.env.AUTH_ADMIN_PASSWORD;
+          if (!email || !password) return null;
+          if (
+            credentials?.email === email &&
+            credentials?.password === password
+          ) {
+            let user = await prisma.user.findUnique({ where: { email } });
+            if (!user) {
+              user = await prisma.user.create({
+                data: {
+                  email,
+                  name: "관리자",
+                  role: "admin",
+                },
+              });
+            }
+            return { id: user.id, email: user.email!, name: user.name };
           }
-          return { id: user.id, email: user.email!, name: user.name };
+          return null;
+        } catch {
+          return null;
         }
-        return null;
       },
     }),
   ],
