@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const { email, password } = await req.json();
     const envEmail = norm(process.env.AUTH_ADMIN_EMAIL ?? "").toLowerCase();
     const envPassword = norm(process.env.AUTH_ADMIN_PASSWORD ?? "");
-    const inputEmail = norm(String(email ?? "").toLowerCase();
+    const inputEmail = norm(String(email ?? "")).toLowerCase();
     const inputPassword = norm(String(password ?? ""));
 
     const emailMatch = inputEmail === envEmail;
