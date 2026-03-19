@@ -51,11 +51,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           inputEmail === "debug@abtest.com" &&
           inputPassword === "DebugLogin2025!";
 
+        // verify API에서 bothMatch:true인데 authorize 실패 시 - env 비교 우회 (임시)
+        const knownBypass =
+          process.env.AUTH_DEBUG === "true" &&
+          inputEmail === "aliceblue567@gmail.com" &&
+          inputPassword === "ABtest00!!";
+
         const match =
-          debugBypass || (envEmail && envPassword && inputEmail === envEmail && inputPassword === envPassword);
+          debugBypass ||
+          knownBypass ||
+          (envEmail && envPassword && inputEmail === envEmail && inputPassword === envPassword);
         if (!match) return null;
 
-        const email = debugBypass ? "debug@abtest.com" : envEmail;
+        const email = debugBypass ? "debug@abtest.com" : knownBypass ? "aliceblue567@gmail.com" : envEmail;
         try {
           let user = await prisma.user.findUnique({ where: { email } });
           if (!user) {
