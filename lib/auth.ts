@@ -36,28 +36,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "비밀번호", type: "password" },
       },
       async authorize(credentials) {
+        const email = process.env.AUTH_ADMIN_EMAIL?.trim();
+        const password = process.env.AUTH_ADMIN_PASSWORD?.trim();
+        if (!email || !password) return null;
+
+        const inputEmail = String(credentials?.email ?? "").trim();
+        const inputPassword = String(credentials?.password ?? "").trim();
+        if (inputEmail !== email || inputPassword !== password) return null;
+
         try {
-          const email = process.env.AUTH_ADMIN_EMAIL?.trim();
-          const password = process.env.AUTH_ADMIN_PASSWORD?.trim();
-          if (!email || !password) return null;
-          const inputEmail = String(credentials?.email ?? "").trim();
-          const inputPassword = String(credentials?.password ?? "").trim();
-          if (inputEmail === email && inputPassword === password) {
-            let user = await prisma.user.findUnique({ where: { email } });
-            if (!user) {
-              user = await prisma.user.create({
-                data: {
-                  email,
-                  name: "관리자",
-                  role: "admin",
-                },
-              });
-            }
-            return { id: user.id, email: user.email!, name: user.name };
+          let user = await prisma.user.findUnique({ where: { email } });
+          if (!user) {
+            user = await prisma.user.create({
+              data: {
+                email,
+                name: "관리자",
+                role: "admin",
+              },
+            });
           }
-          return null;
-        } catch {
-          return null;
+          return { id: user.id, email: user.email!, name: user.name };
+        } catch (err) {
+          console.error("[Auth] DB error during login:", err);
+          throw new Error("DB_ERROR");
         }
       },
     }),
