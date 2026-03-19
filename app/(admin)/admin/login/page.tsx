@@ -22,14 +22,13 @@ function LoginForm() {
     try {
       const res = await fetch("/api/debug/auth-diagnose", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
           email: email.trim(),
           password: password.trim(),
           csrfToken: "x",
           callbackUrl,
-          json: true,
-        }),
+        }).toString(),
       });
       const data = await res.json();
       setDiagnose(JSON.stringify(data, null, 2));
@@ -47,14 +46,13 @@ function LoginForm() {
       const { csrfToken } = await csrfRes.json();
       const res = await fetch("/api/auth/callback/credentials", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
           email: email.trim(),
           password: password.trim(),
           csrfToken,
           callbackUrl,
-          json: true,
-        }),
+        }).toString(),
         redirect: "manual",
       });
       const location = res.headers.get("Location");
