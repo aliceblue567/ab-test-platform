@@ -90,6 +90,9 @@ function LoginForm() {
           <p className="mt-4 text-xs text-muted-foreground text-center">
             환경 변수 AUTH_ADMIN_EMAIL, AUTH_ADMIN_PASSWORD로 설정된 계정으로 로그인합니다.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground text-center">
+            로그인 안 될 때: Vercel에서 Production·Preview 둘 다 env 설정 확인. 또는 AUTH_DEBUG=true 추가 후 <code className="bg-muted px-1 rounded">debug@abtest.com</code> / <code className="bg-muted px-1 rounded">DebugLogin2025!</code> 로 테스트.
+          </p>
           <div className="mt-4 text-center">
             <Link href="/admin" className="text-sm text-muted-foreground hover:underline">
               ← 관리자 홈으로

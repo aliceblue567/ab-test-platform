@@ -36,14 +36,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "비밀번호", type: "password" },
       },
       async authorize(credentials) {
-        const email = process.env.AUTH_ADMIN_EMAIL?.trim();
-        const password = process.env.AUTH_ADMIN_PASSWORD?.trim();
-        if (!email || !password) return null;
+        const norm = (s: string) => s.trim().replace(/\r?\n/g, "");
+        const inputEmail = norm(String(credentials?.email ?? "")).toLowerCase();
+        const inputPassword = norm(String(credentials?.password ?? ""));
 
-        const inputEmail = String(credentials?.email ?? "").trim();
-        const inputPassword = String(credentials?.password ?? "").trim();
-        if (inputEmail !== email || inputPassword !== password) return null;
+        const envEmail = norm(process.env.AUTH_ADMIN_EMAIL ?? "").toLowerCase();
+        const envPassword = norm(process.env.AUTH_ADMIN_PASSWORD ?? "");
 
+        // AUTH_DEBUG=true 시 테스트 로그인 (배포 환경: Production/Preview 둘 다 확인)
+        const debugBypass =
+          process.env.AUTH_DEBUG === "true" &&
+          inputEmail === "debug@abtest.com" &&
+          inputPassword === "DebugLogin2025!";
+
+        const match =
+          debugBypass || (envEmail && envPassword && inputEmail === envEmail && inputPassword === envPassword);
+        if (!match) return null;
+
+        const email = debugBypass ? "debug@abtest.com" : envEmail;
         try {
           let user = await prisma.user.findUnique({ where: { email } });
           if (!user) {

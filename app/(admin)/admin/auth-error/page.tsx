@@ -33,6 +33,9 @@ function AuthErrorContent() {
               <li><code className="text-foreground">AUTH_ADMIN_PASSWORD</code> — 로그인 비밀번호</li>
               <li><code className="text-foreground">AUTH_TRUST_HOST</code> — <code>true</code></li>
             </ul>
+            <p className="mt-2 text-amber-600 dark:text-amber-500">
+              ⚠️ Production과 Preview 환경 각각에 변수를 설정해야 합니다.
+            </p>
           </div>
           <p className="text-xs text-muted-foreground">
             설정 후 프로젝트를 Redeploy 해주세요.
