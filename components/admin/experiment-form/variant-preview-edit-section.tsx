@@ -21,11 +21,12 @@ function payloadForRenderer(payloadJson: string): LandingPayload {
   }
   const ctaLabel = p.ctaLabel as string | undefined;
   const cta = p.cta as { label?: string } | undefined;
+  const label = (cta?.label ?? ctaLabel) ?? "";
   return {
     title: (p.title as string) ?? "Welcome",
     subtitle: p.subtitle as string | undefined,
     cards: Array.isArray(p.cards) ? p.cards : undefined,
-    cta: cta ?? (ctaLabel ? { label: ctaLabel } : undefined),
+    cta: label ? { label } : undefined,
   };
 }
 

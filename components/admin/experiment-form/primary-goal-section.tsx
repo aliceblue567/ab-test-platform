@@ -41,7 +41,12 @@ export function PrimaryGoalSection() {
           <Label>핵심 지표</Label>
           <Select
             value={primaryGoalKey ?? ""}
-            onValueChange={(v) => setValue("primaryGoalKey", v || undefined)}
+            onValueChange={(v) =>
+              setValue(
+                "primaryGoalKey",
+                (v || undefined) as "cta_click_rate" | "card_click_rate" | "detail_view_rate" | "bounce_reduction" | "custom" | undefined
+              )
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="지표 선택" />

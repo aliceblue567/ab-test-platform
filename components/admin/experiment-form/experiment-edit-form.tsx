@@ -19,6 +19,14 @@ import {
   type EditExperimentFormValues,
 } from "./experiment-edit-form-schema";
 
+const VALID_GOAL_KEYS = [
+  "cta_click_rate",
+  "card_click_rate",
+  "detail_view_rate",
+  "bounce_reduction",
+  "custom",
+] as const;
+
 type Experiment = {
   id: string;
   key: string;
@@ -67,12 +75,15 @@ export function ExperimentEditForm({ experimentId }: { experimentId: string }) {
         form.reset({
           name: data.name,
           description: data.description ?? "",
-          primaryGoalKey: data.primaryGoalKey ?? null,
+          primaryGoalKey:
+            data.primaryGoalKey && VALID_GOAL_KEYS.includes(data.primaryGoalKey as (typeof VALID_GOAL_KEYS)[number])
+              ? (data.primaryGoalKey as (typeof VALID_GOAL_KEYS)[number])
+              : null,
           primaryGoalCustom: data.primaryGoalCustom ?? null,
           trafficAllocation: data.trafficAllocation,
           variants: data.variants.map((v) => ({
             id: v.id,
-            key: v.key,
+            key: v.key as "control" | "variant_a" | "variant_b",
             name: v.name,
             weight: v.weight,
             payloadJson: JSON.stringify(v.payload, null, 2),

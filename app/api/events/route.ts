@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         sessionKey: data.sessionKey ?? null,
         eventName: data.eventName,
         eventValue: data.eventValue ?? null,
-        eventProps: data.metadata ?? null,
+        ...(data.metadata != null && { eventProps: data.metadata }),
       },
     });
 
