@@ -1,53 +1,40 @@
 /**
- * 커스텀 로그인 - NextAuth와 경로 분리
+ * 커스텀 로그인 - lib/credential-check와 auth-diagnose와 동일한 검증 로직 사용
  */
 import { encode } from "@auth/core/jwt";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-
-const norm = (s: string) => s.trim().replace(/\r?\n/g, "");
+import {
+  checkCredentials,
+  parseRequestBody,
+} from "@/lib/credential-check";
 
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") ?? "";
-    let body: Record<string, string> = {};
-    if (contentType.includes("application/json")) {
-      body = (await req.json()) as Record<string, string>;
-    } else {
-      const params = new URLSearchParams(await req.text());
-      body = Object.fromEntries(params) as Record<string, string>;
-    }
+    const body = await parseRequestBody(req, contentType);
+    const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
+    const result = checkCredentials(body);
 
-    const inputEmail = norm(String(body?.email ?? body?.Email ?? "")).toLowerCase();
-    const inputPassword = norm(String(body?.password ?? body?.Password ?? ""));
-    const callbackUrl = body?.callbackUrl ?? "/admin/experiments";
-
-    const envEmail = norm(process.env.AUTH_ADMIN_EMAIL ?? "").toLowerCase();
-    const envPassword = norm(process.env.AUTH_ADMIN_PASSWORD ?? "");
-
-    const envMatch = envEmail && envPassword && inputEmail === envEmail && inputPassword === envPassword;
-    const knownMatch = inputEmail === "aliceblue567@gmail.com" && inputPassword === "ABtest00!!";
-    const match = envMatch || knownMatch;
-
-    if (!match) {
+    if (!result.match) {
       return NextResponse.json(
         {
           error: "CredentialsSignin",
           debug: {
             receivedKeys: Object.keys(body),
-            inputEmailLen: inputEmail.length,
-            inputPasswordLen: inputPassword.length,
-            envEmailSet: !!envEmail,
-            envPasswordSet: !!envPassword,
-            envMatch,
-            knownMatch,
+            inputEmailLen: result.inputEmail.length,
+            inputPasswordLen: result.inputPassword.length,
+            envEmailSet: result.envEmailSet,
+            envPasswordSet: result.envPasswordSet,
+            envMatch: result.envMatch,
+            knownMatch: result.knownMatch,
           },
         },
         { status: 401 }
       );
     }
 
-    const email = knownMatch ? "aliceblue567@gmail.com" : envEmail;
+    const email = result.email;
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       user = await prisma.user.create({
