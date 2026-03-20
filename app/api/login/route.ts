@@ -85,7 +85,12 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const name = err instanceof Error ? err.name : "";
     console.error("[login]", err);
-    return NextResponse.json({ error: "Unknown" }, { status: 500 });
+    return NextResponse.json(
+      { error: msg, errorName: name },
+      { status: 500 }
+    );
   }
 }
