@@ -18,8 +18,8 @@ export async function POST(req: NextRequest) {
       body = Object.fromEntries(params) as Record<string, string>;
     }
 
-    const inputEmail = norm(String(body?.email ?? "")).toLowerCase();
-    const inputPassword = norm(String(body?.password ?? ""));
+    const inputEmail = norm(String(body?.email ?? body?.Email ?? "")).toLowerCase();
+    const inputPassword = norm(String(body?.password ?? body?.Password ?? ""));
     const callbackUrl = body?.callbackUrl ?? "/admin/experiments";
 
     const envEmail = norm(process.env.AUTH_ADMIN_EMAIL ?? "").toLowerCase();
@@ -31,7 +31,18 @@ export async function POST(req: NextRequest) {
 
     if (!match) {
       return NextResponse.json(
-        { error: "CredentialsSignin" },
+        {
+          error: "CredentialsSignin",
+          debug: {
+            receivedKeys: Object.keys(body),
+            inputEmailLen: inputEmail.length,
+            inputPasswordLen: inputPassword.length,
+            envEmailSet: !!envEmail,
+            envPasswordSet: !!envPassword,
+            envMatch,
+            knownMatch,
+          },
+        },
         { status: 401 }
       );
     }

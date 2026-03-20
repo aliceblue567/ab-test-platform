@@ -40,6 +40,7 @@ function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setDiagnose(null);
     setLoading(true);
     try {
       const res = await fetch("/api/login", {
@@ -57,6 +58,7 @@ function LoginForm() {
         return;
       }
       setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      if (data?.debug) setDiagnose(JSON.stringify(data.debug, null, 2));
     } catch {
       setError("로그인 중 오류가 발생했습니다.");
     } finally {
