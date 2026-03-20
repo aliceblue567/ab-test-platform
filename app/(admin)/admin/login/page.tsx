@@ -70,12 +70,13 @@ function LoginForm() {
         </CardHeader>
         <CardContent>
           <form
-            action="/api/login-form"
+            action="/api/login"
             method="POST"
             autoComplete="off"
             className="space-y-4"
           >
             <input type="hidden" name="callbackUrl" value={callbackUrl} />
+            <input type="hidden" name="redirect" value="1" />
             {error && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
                 {error}

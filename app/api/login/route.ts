@@ -17,6 +17,13 @@ export async function POST(req: NextRequest) {
     const result = checkCredentials(body);
 
     if (!result.match) {
+      const loginUrl = new URL("/admin/login", req.url);
+      loginUrl.searchParams.set("error", "CredentialsSignin");
+      loginUrl.searchParams.set("callbackUrl", callbackUrl);
+      const useRedirect = body?.redirect === "1" || body?.redirect === "true";
+      if (useRedirect) {
+        return NextResponse.redirect(loginUrl);
+      }
       return NextResponse.json(
         {
           error: "CredentialsSignin",
@@ -46,7 +53,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const isSecure = req.nextUrl.protocol === "https:";
+    const isSecure =
+      req.nextUrl.protocol === "https:" ||
+      req.headers.get("x-forwarded-proto") === "https";
     const cookieName = isSecure ? "__Secure-authjs.session-token" : "authjs.session-token";
 
     const secret = process.env.AUTH_SECRET || "dev-secret-replace-in-production";
@@ -62,7 +71,10 @@ export async function POST(req: NextRequest) {
       maxAge: 30 * 24 * 60 * 60,
     });
 
-    const res = NextResponse.json({ url: callbackUrl });
+    const useRedirect = body?.redirect === "1" || body?.redirect === "true";
+    const res = useRedirect
+      ? NextResponse.redirect(new URL(callbackUrl, req.url))
+      : NextResponse.json({ url: callbackUrl });
     res.cookies.set(cookieName, token, {
       httpOnly: true,
       secure: isSecure,
