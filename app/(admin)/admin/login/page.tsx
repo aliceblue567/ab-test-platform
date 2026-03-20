@@ -59,6 +59,42 @@ function LoginForm() {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setDiagnose(null);
+    setLoading(true);
+    const form = e.currentTarget;
+    const { email: eVal, password: pVal } = getFormValues(form);
+    try {
+      const res = await fetch("/api/debug/auth-diagnose", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Do-Login": "true",
+        },
+        body: new URLSearchParams({
+          email: eVal,
+          password: pVal,
+          csrfToken: "x",
+          callbackUrl,
+        }).toString(),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      setDiagnose(JSON.stringify(data, null, 2));
+    } catch {
+      setError("로그인 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <Card className="w-full max-w-md">
@@ -70,13 +106,11 @@ function LoginForm() {
         </CardHeader>
         <CardContent>
           <form
-            action="/api/login"
-            method="POST"
+            onSubmit={handleSubmit}
             autoComplete="off"
             className="space-y-4"
           >
             <input type="hidden" name="callbackUrl" value={callbackUrl} />
-            <input type="hidden" name="redirect" value="1" />
             {error && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
@@ -108,8 +142,8 @@ function LoginForm() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full">
-              로그인
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "로그인 중..." : "로그인"}
             </Button>
             <Button
               type="button"
