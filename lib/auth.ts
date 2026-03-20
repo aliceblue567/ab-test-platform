@@ -1,11 +1,13 @@
 /**
  * Auth.js (NextAuth v5) 설정
  * 관리자 로그인용 - CredentialsProvider (이메일/비밀번호)
+ * lib/credential-check와 동일한 검증 로직 사용
  */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
+import { checkCredentials } from "@/lib/credential-check";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -36,45 +38,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "비밀번호", type: "password" },
       },
       async authorize(credentials) {
-        const norm = (s: string) => s.trim().replace(/\r?\n/g, "");
-        const envEmail = norm(process.env.AUTH_ADMIN_EMAIL ?? "").toLowerCase();
-        const envPassword = norm(process.env.AUTH_ADMIN_PASSWORD ?? "");
-
-        // credentials 키 대소문자 무관 (email/Email 등)
-        const creds = credentials as Record<string, unknown>;
-        const inputEmail = norm(String(creds?.email ?? creds?.Email ?? "")).toLowerCase();
-        const inputPassword = norm(String(creds?.password ?? creds?.Password ?? ""));
-
-        // AUTH_DEBUG=true 시 테스트 로그인
-        const debugBypass =
-          process.env.AUTH_DEBUG === "true" &&
-          inputEmail === "debug@abtest.com" &&
-          inputPassword === "DebugLogin2025!";
-
-        // verify API에서 bothMatch:true인데 authorize 실패 시 - env 비교 우회 (임시)
-        const knownBypass =
-          process.env.AUTH_DEBUG === "true" &&
-          inputEmail === "aliceblue567@gmail.com" &&
-          inputPassword === "ABtest00!!";
-
-        const match =
-          debugBypass ||
-          knownBypass ||
-          (envEmail && envPassword && inputEmail === envEmail && inputPassword === envPassword);
-        if (!match) {
+        const creds = (credentials ?? {}) as Record<string, unknown>;
+        const result = checkCredentials(creds);
+        if (!result.match) {
           console.error("[Auth] authorize 실패", {
-            credKeys: Object.keys(creds ?? {}),
-            inputEmailLen: inputEmail.length,
-            inputPasswordLen: inputPassword.length,
-            envEmailLen: envEmail.length,
-            envPasswordLen: envPassword.length,
-            emailMatch: inputEmail === envEmail,
-            passwordMatch: inputPassword === envPassword,
+            credKeys: Object.keys(creds),
+            envMatch: result.envMatch,
+            knownMatch: result.knownMatch,
           });
           return null;
         }
 
-        const email = debugBypass ? "debug@abtest.com" : knownBypass ? "aliceblue567@gmail.com" : envEmail;
+        const email = result.email;
         try {
           let user = await prisma.user.findUnique({ where: { email } });
           if (!user) {

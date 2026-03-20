@@ -1,7 +1,18 @@
 /**
  * auth-diagnose와 login이 동일한 credential 검증 로직을 사용하도록 공유
+ * Vercel env·입력값의 숨은 문자(공백, BOM, zero-width 등) 제거
  */
-const norm = (s: string) => s.trim().replace(/\r?\n/g, "");
+function norm(s: string): string {
+  return (
+    String(s ?? "")
+      .replace(/^\uFEFF/, "") // BOM
+      .replace(/[\u200B-\u200D\uFEFF]/g, "") // zero-width
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .normalize("NFC")
+  );
+}
 
 export type CredentialCheckResult = {
   match: boolean;
@@ -14,6 +25,15 @@ export type CredentialCheckResult = {
   knownMatch: boolean;
   emailMatch: boolean;
   passwordMatch: boolean;
+  /** envMatch false일 때 숨은 문자 확인용 */
+  debugMismatch?: {
+    inputEmailLen: number;
+    envEmailLen: number;
+    inputEmailFirstChar: number;
+    envEmailFirstChar: number;
+    inputPassFirstChar: number;
+    envPassFirstChar: number;
+  };
 };
 
 export function checkCredentials(body: Record<string, unknown>): CredentialCheckResult {
@@ -33,6 +53,18 @@ export function checkCredentials(body: Record<string, unknown>): CredentialCheck
 
   const email = knownMatch ? "aliceblue567@gmail.com" : envEmail;
 
+  const debugMismatch =
+    !envMatch && envEmail && envPassword
+      ? {
+          inputEmailLen: inputEmail.length,
+          envEmailLen: envEmail.length,
+          inputEmailFirstChar: inputEmail.charCodeAt(0),
+          envEmailFirstChar: envEmail.charCodeAt(0),
+          inputPassFirstChar: inputPassword.charCodeAt(0),
+          envPassFirstChar: envPassword.charCodeAt(0),
+        }
+      : undefined;
+
   return {
     match,
     email,
@@ -44,6 +76,7 @@ export function checkCredentials(body: Record<string, unknown>): CredentialCheck
     knownMatch,
     emailMatch,
     passwordMatch,
+    debugMismatch,
   };
 }
 

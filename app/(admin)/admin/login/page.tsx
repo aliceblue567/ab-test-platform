@@ -11,56 +11,49 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/admin/experiments";
+  const urlError = searchParams.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(urlError ? "이메일 또는 비밀번호가 올바르지 않습니다." : null);
   const [loading, setLoading] = useState(false);
   const [diagnose, setDiagnose] = useState<string | null>(null);
 
-  const handleDiagnose = async () => {
+  const getFormValues = (form: HTMLFormElement) => {
+    const fd = new FormData(form);
+    return {
+      email: String(fd.get("email") ?? "").trim(),
+      password: String(fd.get("password") ?? "").trim(),
+    };
+  };
+
+  const handleDiagnose = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
     setDiagnose(null);
+    setLoading(true);
+    const form = (e.currentTarget as HTMLButtonElement).form;
+    if (!form) return;
+    const { email: eVal, password: pVal } = getFormValues(form);
     try {
       const res = await fetch("/api/debug/auth-diagnose", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          email: email.trim(),
-          password: password.trim(),
+          email: eVal,
+          password: pVal,
           csrfToken: "x",
           callbackUrl,
         }).toString(),
       });
       const data = await res.json();
-      setDiagnose(JSON.stringify(data, null, 2));
+      setDiagnose(
+        JSON.stringify(
+          { ...data, clientSent: { emailLen: eVal.length, passwordLen: pVal.length } },
+          null,
+          2
+        )
+      );
     } catch {
       setDiagnose("진단 실패");
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setDiagnose(null);
-    setLoading(true);
-    try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          email: email.trim(),
-          password: password.trim(),
-          callbackUrl,
-        }).toString(),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.url) {
-        window.location.href = data.url;
-        return;
-      }
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
-      if (data?.debug) setDiagnose(JSON.stringify(data.debug, null, 2));
-    } catch {
-      setError("로그인 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -76,7 +69,13 @@ function LoginForm() {
           </p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form
+            action="/api/login-form"
+            method="POST"
+            autoComplete="off"
+            className="space-y-4"
+          >
+            <input type="hidden" name="callbackUrl" value={callbackUrl} />
             {error && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
@@ -86,10 +85,12 @@ function LoginForm() {
               <Label htmlFor="email">이메일</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
+                placeholder="aliceblue567@gmail.com"
+                autoComplete="off"
                 required
               />
             </div>
@@ -97,20 +98,23 @@ function LoginForm() {
               <Label htmlFor="password">비밀번호</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호 입력"
+                autoComplete="off"
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "로그인 중..." : "로그인"}
+            <Button type="submit" className="w-full">
+              로그인
             </Button>
             <Button
               type="button"
               variant="outline"
               className="w-full"
-              onClick={handleDiagnose}
+              onClick={(e) => handleDiagnose(e)}
               disabled={loading}
             >
               원인 확인

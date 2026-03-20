@@ -1,9 +1,8 @@
 /**
- * credentials callback 전용 라우트 - [...nextauth]보다 우선
- * lib/credential-check와 동일한 검증 로직 사용
+ * 폼 POST 전용 로그인 - 302 리다이렉트로 쿠키 설정 (fetch보다 안정적)
  */
-import { encode } from "@auth/core/jwt";
 import { NextRequest, NextResponse } from "next/server";
+import { encode } from "@auth/core/jwt";
 import { prisma } from "@/lib/db";
 import {
   checkCredentials,
@@ -14,13 +13,14 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") ?? "";
     const body = await parseRequestBody(req, contentType);
-    const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
     const result = checkCredentials(body);
+    const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
+    const loginUrl = new URL("/admin/login", req.url);
 
     if (!result.match) {
-      return NextResponse.redirect(
-        new URL(`/admin/login?error=CredentialsSignin&callbackUrl=${encodeURIComponent(callbackUrl)}`, req.url)
-      );
+      loginUrl.searchParams.set("error", "CredentialsSignin");
+      loginUrl.searchParams.set("callbackUrl", callbackUrl);
+      return NextResponse.redirect(loginUrl);
     }
 
     let user = await prisma.user.findUnique({ where: { email: result.email } });
@@ -34,9 +34,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const isSecure = req.nextUrl.protocol === "https:";
+    const isSecure =
+      req.nextUrl.protocol === "https:" ||
+      req.headers.get("x-forwarded-proto") === "https";
     const cookieName = isSecure ? "__Secure-authjs.session-token" : "authjs.session-token";
-
     const secret = process.env.AUTH_SECRET || "dev-secret-replace-in-production";
     const token = await encode({
       token: {
@@ -58,10 +59,11 @@ export async function POST(req: NextRequest) {
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
     });
-
     return res;
   } catch (err) {
-    console.error("[credentials callback]", err);
-    return NextResponse.redirect(new URL("/admin/login?error=Unknown", req.url));
+    console.error("[login-form]", err);
+    const loginUrl = new URL("/admin/login", req.url);
+    loginUrl.searchParams.set("error", "Unknown");
+    return NextResponse.redirect(loginUrl);
   }
 }
