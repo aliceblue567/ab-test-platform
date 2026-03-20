@@ -42,30 +42,17 @@ function LoginForm() {
     setError(null);
     setLoading(true);
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
-      const res = await fetch("/api/auth/callback/credentials", {
+      const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           email: email.trim(),
           password: password.trim(),
-          csrfToken,
           callbackUrl,
         }).toString(),
-        redirect: "manual",
       });
-      const location = res.headers.get("Location");
-      if (res.status === 302 && location && !location.includes("error=")) {
-        window.location.href = location;
-        return;
-      }
-      if (res.status === 302 && location?.includes("CredentialsSignin")) {
-        setError("이메일 또는 비밀번호가 올바르지 않습니다.");
-        return;
-      }
-      const data = res.headers.get("Content-Type")?.includes("json") ? await res.json().catch(() => ({})) : {};
-      if (data?.url && !data.url.includes("error=")) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.url) {
         window.location.href = data.url;
         return;
       }
