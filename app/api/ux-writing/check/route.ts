@@ -7,7 +7,7 @@ import { z } from "zod";
 import { fetchGuidelines } from "@/lib/ux-writing/guidelines";
 import { runUxWritingCheck } from "@/lib/ux-writing/openai-check";
 import { getClientIp } from "@/lib/ux-writing/request-ip";
-import { consumeIpRateLimit } from "@/lib/ux-writing/rate-limit";
+import { consumeWebWritingCheckIpRateLimit } from "@/lib/ux-writing/rate-limit";
 import { UxWritingCheckFailed } from "@/lib/ux-writing/openai-errors";
 
 const bodySchema = z.object({
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   }
 
   const ip = getClientIp(request);
-  const ipLimit = consumeIpRateLimit(ip);
+  const ipLimit = consumeWebWritingCheckIpRateLimit(ip);
   if (!ipLimit.allowed) {
     return NextResponse.json(
       {

@@ -22,6 +22,12 @@ function ipMaxHits(): number {
   return Number.isFinite(m) && m > 0 ? m : 40;
 }
 
+/** 메인 페이지 검수(/api/ux-writing/check) 전용 — v1 API와 버킷을 나눔(한도 공유로 오탐 429 방지) */
+function webWritingCheckIpMaxHits(): number {
+  const m = Number(process.env.UX_WRITING_WEB_CHECK_IP_MAX);
+  return Number.isFinite(m) && m > 0 ? m : 120;
+}
+
 export function consumeRateLimit(
   key: string,
   options?: { windowMs?: number; max?: number }
@@ -53,5 +59,16 @@ export function consumeIpRateLimit(ipKey: string): {
   return consumeRateLimit(`ip:${ipKey}`, {
     windowMs: defaultWindowMs(),
     max: ipMaxHits(),
+  });
+}
+
+/** 브라우저 메인 검수만 — v1과 IP 한도를 분리 */
+export function consumeWebWritingCheckIpRateLimit(ipKey: string): {
+  allowed: boolean;
+  retryAfterSec: number;
+} {
+  return consumeRateLimit(`webcheck:${ipKey}`, {
+    windowMs: defaultWindowMs(),
+    max: webWritingCheckIpMaxHits(),
   });
 }
