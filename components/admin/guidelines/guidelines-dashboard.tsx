@@ -64,6 +64,41 @@ const emptyForm = {
 const toolbarBtnClass =
   "h-9 min-h-9 gap-2 px-3 sm:px-4 text-sm font-medium";
 
+/** API 500 본문을 사용자가 조치할 수 있게 풀어 씀 */
+function friendlyGuidelineApiError(raw: string): string {
+  if (
+    raw.includes("Missing NEXT_PUBLIC_SUPABASE_URL") ||
+    raw.includes("SUPABASE_SERVICE_ROLE_KEY")
+  ) {
+    return "Supabase 환경 변수가 없습니다. 배포(Vercel 등)에 NEXT_PUBLIC_SUPABASE_URL과 SUPABASE_SERVICE_ROLE_KEY(서비스 롤 키)를 넣어 주세요.";
+  }
+  if (
+    /relation ["']guidelines["'] does not exist/i.test(raw) ||
+    raw.includes("Could not find the table") ||
+    raw.includes("schema cache")
+  ) {
+    return "Supabase에 guidelines 테이블이 없거나 아직 반영되지 않았습니다. 프로젝트의 supabase-setup.sql 중 guidelines·RLS 부분을 SQL 편집기에서 실행해 주세요.";
+  }
+  if (
+    raw.toLowerCase().includes("row-level security") ||
+    raw.includes("permission denied") ||
+    (raw.includes("JWT") && raw.includes("Invalid"))
+  ) {
+    return "Supabase 권한 오류입니다. SUPABASE_SERVICE_ROLE_KEY가 anon 키가 아니라 서비스 롤(비밀) 키인지 확인해 주세요.";
+  }
+  return raw;
+}
+
+async function readApiErrorMessage(res: Response): Promise<string> {
+  try {
+    const j = (await res.json()) as { error?: unknown };
+    if (typeof j.error === "string" && j.error.trim()) return j.error;
+  } catch {
+    /* ignore */
+  }
+  return "목록을 불러오지 못했습니다.";
+}
+
 export function GuidelinesDashboard() {
   const [rows, setRows] = useState<Guideline[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +120,9 @@ export function GuidelinesDashboard() {
         return;
       }
       if (!res.ok) {
-        setError("목록을 불러오지 못했습니다.");
+        const raw = await readApiErrorMessage(res);
+        setError(friendlyGuidelineApiError(raw));
+        setRows([]);
         return;
       }
       const data = (await res.json()) as Guideline[];
@@ -143,7 +180,9 @@ export function GuidelinesDashboard() {
         }
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
-          setError(typeof j.error === "string" ? j.error : "저장에 실패했습니다.");
+          const raw =
+            typeof j.error === "string" ? j.error : "저장에 실패했습니다.";
+          setError(friendlyGuidelineApiError(raw));
           return;
         }
         const updated = (await res.json()) as Guideline;
@@ -169,7 +208,9 @@ export function GuidelinesDashboard() {
         }
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
-          setError(typeof j.error === "string" ? j.error : "추가에 실패했습니다.");
+          const raw =
+            typeof j.error === "string" ? j.error : "추가에 실패했습니다.";
+          setError(friendlyGuidelineApiError(raw));
           return;
         }
         const created = (await res.json()) as Guideline;
