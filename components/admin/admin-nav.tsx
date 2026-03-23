@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { FlaskConical, LayoutList, BarChart3, LogIn } from "lucide-react";
+import { FlaskConical, LayoutList, BookOpen, KeyRound, LogIn } from "lucide-react";
 
 const navItems = [
   { href: "/admin/experiments", label: "실험 목록", icon: LayoutList },
   { href: "/admin/planner", label: "플래너", icon: FlaskConical },
+  { href: "/admin/guidelines", label: "UX 가이드", icon: BookOpen },
+  { href: "/admin/api-keys", label: "API 키", icon: KeyRound },
 ];
 
 export function AdminNav() {

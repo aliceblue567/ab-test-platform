@@ -1,17 +1,31 @@
 import Link from "next/link";
+import { WritingChecker } from "@/components/writing-checker";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-2xl font-bold mb-4">A/B Test Platform</h1>
-      <nav className="flex gap-4">
-        <Link href="/admin" className="text-blue-600 hover:underline">
-          관리자
-        </Link>
-        <Link href="/test/demo" className="text-blue-600 hover:underline">
-          테스트 (demo)
-        </Link>
+    <main className="min-h-screen bg-zinc-950">
+      <nav className="border-b border-zinc-800 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 text-sm text-zinc-400">
+          <span className="text-zinc-200">A/B Test Platform</span>
+          <div className="flex gap-4">
+            <Link
+              href="/admin"
+              className="transition-colors hover:text-zinc-100"
+            >
+              관리자
+            </Link>
+            <Link
+              href="/test/demo"
+              className="transition-colors hover:text-zinc-100"
+            >
+              테스트 (demo)
+            </Link>
+          </div>
+        </div>
       </nav>
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+        <WritingChecker />
+      </div>
     </main>
   );
 }

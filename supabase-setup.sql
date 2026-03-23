@@ -194,3 +194,68 @@ DO $$ BEGIN
     ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_experimentId_fkey" FOREIGN KEY ("experimentId") REFERENCES "experiments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN null;
 END $$;
+
+-- UX Writing System: guidelines (이미 있으면 건너뜀)
+CREATE TABLE IF NOT EXISTS "guidelines" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "category" TEXT NOT NULL,
+    "rule_name" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "example_bad" TEXT,
+    "example_good" TEXT,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "guidelines_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "guidelines_category_idx" ON "guidelines"("category");
+
+-- CSV upsert·일괄 동기화: rule_name 기준 유일
+CREATE UNIQUE INDEX IF NOT EXISTS "guidelines_rule_name_key" ON "guidelines"("rule_name");
+
+-- 기존 DB: AI 분석 제외용 활성 플래그
+ALTER TABLE "guidelines" ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN NOT NULL DEFAULT true;
+
+-- 서비스 롤(API 라우트)로만 읽기/쓰기하는 것을 권장. anon은 비활성(또는 필요 시 읽기만 허용).
+ALTER TABLE "guidelines" ENABLE ROW LEVEL SECURITY;
+
+-- 기존 정책이 있으면 충돌할 수 있으므로 이름 고정 후 재생성
+DROP POLICY IF EXISTS "guidelines_service_role_all" ON "guidelines";
+CREATE POLICY "guidelines_service_role_all" ON "guidelines"
+    FOR ALL
+    USING (auth.role() = 'service_role')
+    WITH CHECK (auth.role() = 'service_role');
+
+-- 샘플 데이터 (선택)
+INSERT INTO "guidelines" ("category", "rule_name", "description", "example_bad", "example_good")
+SELECT * FROM (VALUES
+    ('명확성', '동사로 행동 표현', '버튼·링크는 사용자가 할 일을 동사로 짧게 씁니다.', '다음', '계속하기'),
+    ('톤', '죄책감 유발 금지', '오류 메시지에서 사용자를 비난하지 않습니다.', '잘못 입력하셨습니다.', '형식을 확인해 주세요.'),
+    ('간결성', '불필요한 수식어 제거', '핵심 정보만 남기고 중복을 줄입니다.', '지금 바로 무료로 가입해 보세요', '무료로 가입')
+) AS v(category, rule_name, description, example_bad, example_good)
+WHERE NOT EXISTS (SELECT 1 FROM "guidelines" LIMIT 1);
+
+-- UX Writing: 외부 클라이언트(피그마 플러그인 등)용 API 키 (원문은 저장하지 않고 해시만 보관)
+CREATE TABLE IF NOT EXISTS "api_keys" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "name" TEXT NOT NULL,
+    "key_hash" TEXT NOT NULL,
+    "key_prefix" TEXT NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_used_at" TIMESTAMP(3),
+    CONSTRAINT "api_keys_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "api_keys_key_hash_key" UNIQUE ("key_hash")
+);
+
+CREATE INDEX IF NOT EXISTS "api_keys_is_active_idx" ON "api_keys"("is_active");
+
+ALTER TABLE "api_keys" ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "api_keys_service_role_all" ON "api_keys";
+CREATE POLICY "api_keys_service_role_all" ON "api_keys"
+    FOR ALL
+    USING (auth.role() = 'service_role')
+    WITH CHECK (auth.role() = 'service_role');

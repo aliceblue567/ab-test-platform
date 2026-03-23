@@ -1,0 +1,6 @@
+/* 전역 design token(--*)에 의존하지 않음. 루트에만 격리·캡슐화 */
+.wcRoot {
+  isolation: isolate;
+  contain: content;
+  font-synthesis: none;
+}
