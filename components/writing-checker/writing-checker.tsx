@@ -2,7 +2,10 @@
 
 import { useCallback, useMemo, useState } from "react";
 import styles from "@/components/writing-checker/writing-checker.module.css";
-import { UX_WRITING_CHECK_API_PATH } from "@/components/writing-checker/constants";
+import {
+  UX_WRITING_CHECK_API_PATH,
+  UX_WRITING_WEB_CHECK_API_PATH,
+} from "@/components/writing-checker/constants";
 
 type CheckResult = {
   original: string;
@@ -14,11 +17,8 @@ type CheckResult = {
 const FETCH_TIMEOUT_MS = 120_000;
 
 function messageForHttpStatus(status: number, fallback: string): string {
-  if (status === 401) {
-    return "API 키가 없거나 올바르지 않습니다. 발급받은 키를 확인해 주세요.";
-  }
   if (status === 403) {
-    return "이 출처에서는 호출할 수 없습니다. CORS 설정을 확인해 주세요.";
+    return "이 페이지에서만 검수를 사용할 수 있습니다.";
   }
   if (status === 429) {
     return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
@@ -34,14 +34,13 @@ function messageForHttpStatus(status: number, fallback: string): string {
 
 export function WritingChecker() {
   const [text, setText] = useState("");
-  const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckResult | null>(null);
 
   const canSubmit = useMemo(
-    () => text.trim().length > 0 && apiKey.trim().length > 0 && !loading,
-    [text, apiKey, loading]
+    () => text.trim().length > 0 && !loading,
+    [text, loading]
   );
 
   const onSubmit = useCallback(
@@ -54,12 +53,11 @@ export function WritingChecker() {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
-        const res = await fetch(UX_WRITING_CHECK_API_PATH, {
+        const res = await fetch(UX_WRITING_WEB_CHECK_API_PATH, {
           method: "POST",
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": apiKey.trim(),
           },
           body: JSON.stringify({ text: text.trim() }),
         });
@@ -92,7 +90,7 @@ export function WritingChecker() {
         setLoading(false);
       }
     },
-    [canSubmit, text, apiKey]
+    [canSubmit, text]
   );
 
   return (
@@ -109,39 +107,16 @@ export function WritingChecker() {
           가이드라인 기반 문구 검수
         </h1>
         <p className="max-w-xl text-sm leading-relaxed text-zinc-400">
-          Supabase에 등록된 UX 라이팅 가이드를 반영해 문구를 검토합니다. 외부
-          클라이언트는 HTTP 헤더{" "}
-          <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-xs text-zinc-200">
-            x-api-key
-          </code>
-          로{" "}
+          아래에 문구만 넣으면 가이드라인을 반영해 검수합니다. API 키는 필요
+          없습니다. 피그마 플러그인·외부 도구 연동은 관리자가 발급한 키로{" "}
           <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-200">
             {UX_WRITING_CHECK_API_PATH}
           </code>
-          를 호출할 수 있습니다.
+          를 호출하면 됩니다.
         </p>
       </header>
 
       <form onSubmit={onSubmit} className="mt-8 space-y-6">
-        <div className="space-y-2">
-          <label
-            htmlFor="wc-api-key"
-            className="text-sm font-medium text-zinc-200"
-          >
-            API 키
-          </label>
-          <input
-            id="wc-api-key"
-            className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 shadow-inner outline-none ring-zinc-500 placeholder:text-zinc-500 focus-visible:ring-2 disabled:opacity-60"
-            type="password"
-            autoComplete="off"
-            placeholder="관리자 콘솔에서 발급받은 키를 입력하세요"
-            value={apiKey}
-            disabled={loading}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-        </div>
-
         <div className="space-y-2">
           <label
             htmlFor="wc-text"
