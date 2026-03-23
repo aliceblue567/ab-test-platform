@@ -10,6 +10,12 @@ import {
   consumeRateLimit,
 } from "@/lib/ux-writing/rate-limit";
 import { UxWritingCheckFailed } from "@/lib/ux-writing/openai-errors";
+import {
+  assertUxWritingQuotaAvailable,
+  recordUxWritingCheckSuccess,
+  UsageCapExceededError,
+} from "@/lib/ux-writing/usage-cap";
+import { toApiErrorMessage } from "@/lib/api-error";
 
 const bodySchema = z.object({
   text: z.string().min(1, "text is required").max(12_000),
@@ -101,10 +107,18 @@ export async function POST(request: Request) {
   }
 
   try {
+    await assertUxWritingQuotaAvailable();
     const guidelines = await fetchGuidelines();
     const result = await runUxWritingCheck(parsed.data.text, guidelines);
+    await recordUxWritingCheckSuccess();
     return NextResponse.json(result, { headers: cors.headers });
   } catch (e) {
+    if (e instanceof UsageCapExceededError) {
+      return NextResponse.json(
+        { error: "Forbidden", message: e.message },
+        { status: 403, headers: cors.headers }
+      );
+    }
     if (e instanceof UxWritingCheckFailed) {
       return NextResponse.json(
         { error: "Bad Gateway", message: e.message },
@@ -114,7 +128,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "Internal server error",
-        message: "검수 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+        message: toApiErrorMessage(e),
       },
       { status: 500, headers: cors.headers }
     );
