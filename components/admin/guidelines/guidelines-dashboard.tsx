@@ -2,9 +2,23 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  BookOpen,
+  Inbox,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +60,9 @@ const emptyForm = {
   example_good: "",
   is_active: true,
 };
+
+const toolbarBtnClass =
+  "h-9 min-h-9 gap-2 px-3 sm:px-4 text-sm font-medium";
 
 export function GuidelinesDashboard() {
   const [rows, setRows] = useState<Guideline[]>([]);
@@ -212,65 +229,152 @@ export function GuidelinesDashboard() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <BookOpen className="h-7 w-7 text-muted-foreground" />
-            UX 라이팅 가이드라인
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-            규칙을 추가·수정하면 Supabase에 즉시 반영되며,{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              /api/v1/ux-writing/check
-            </code>
-            는{" "}
-            <strong className="text-foreground">활성</strong> 규칙만 AI
-            프롬프트에 포함합니다.
+    <div className="mx-auto max-w-6xl space-y-6 p-6">
+      {/* 페이지 헤더 */}
+      <header className="space-y-1">
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <BookOpen className="h-7 w-7 shrink-0 text-muted-foreground" aria-hidden />
+          UX 라이팅 가이드라인
+        </h1>
+        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          규칙을 추가·수정하면 Supabase에 반영되고,{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+            /api/v1/ux-writing/check
+          </code>{" "}
+          는 <strong className="text-foreground">활성</strong> 규칙만 AI
+          프롬프트에 넣습니다.
+        </p>
+      </header>
+
+      {/* 작업 영역: 주요 동작 + 보조 동작을 한 카드에 정리 */}
+      <section
+        aria-label="가이드라인 작업"
+        className="rounded-xl border border-border bg-card text-card-foreground shadow-sm"
+      >
+        <div className="border-b border-border px-4 py-3 sm:px-5">
+          <h2 className="text-sm font-semibold text-foreground">작업</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            자주 쓰는 기능을 한곳에 모았습니다.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => load()} disabled={loading}>
-            <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-            새로고침
-          </Button>
-          <GuidelinesCsvUpload onImported={load} disabled={loading} />
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            새 규칙
-          </Button>
-        </div>
-      </div>
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6 sm:p-5">
+          <div className="flex flex-col justify-center gap-2 sm:min-w-[200px]">
+            <span className="text-xs font-medium text-muted-foreground">
+              규칙 만들기
+            </span>
+            <Button
+              type="button"
+              className="h-10 w-full justify-center gap-2 sm:w-auto sm:min-w-[160px]"
+              onClick={openCreate}
+              disabled={loading}
+            >
+              <Plus className="h-4 w-4" />
+              새 규칙 추가
+            </Button>
+          </div>
 
+          <div className="hidden w-px shrink-0 bg-border sm:block" aria-hidden />
+
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <span className="text-xs font-medium text-muted-foreground">
+              목록 · 파일
+            </span>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                className={toolbarBtnClass}
+                onClick={() => load()}
+                disabled={loading}
+                aria-busy={loading}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 shrink-0 ${loading ? "animate-spin" : ""}`}
+                />
+                목록 새로고침
+              </Button>
+              <GuidelinesCsvUpload onImported={load} disabled={loading} />
+            </div>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              CSV는 UTF-8로 저장한 뒤 업로드해 주세요. 엑셀에서 저장할 때도
+              “CSV UTF-8(쉼표로 분리)” 형식을 선택하면 안전합니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 오류 알림 */}
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}{" "}
-          {error.includes("로그인") ? (
-            <Link href="/admin/login" className="underline font-medium">
-              로그인하기
-            </Link>
-          ) : null}
-        </p>
+        <div
+          role="alert"
+          className="flex gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <AlertCircle className="h-5 w-5 shrink-0" aria-hidden />
+          <div className="min-w-0 pt-0.5">
+            <p className="font-medium">문제가 발생했습니다</p>
+            <p className="mt-1 text-destructive/90">
+              {error}
+              {error.includes("로그인") ? (
+                <>
+                  {" "}
+                  <Link
+                    href="/admin/login"
+                    className="font-medium underline underline-offset-2"
+                  >
+                    로그인하기
+                  </Link>
+                </>
+              ) : null}
+            </p>
+            {!error.includes("로그인") ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 h-8 border-destructive/30 text-destructive hover:bg-destructive/10"
+                onClick={() => load()}
+              >
+                다시 시도
+              </Button>
+            ) : null}
+          </div>
+        </div>
       ) : null}
 
+      {/* 규칙 테이블 */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">규칙 목록</CardTitle>
           <CardDescription>
-            표에서 활성화를 끄면 해당 규칙은 다음 검수 요청부터 AI 분석에서 제외됩니다.
+            비활성화한 규칙은 다음 검수 요청부터 AI 분석에서 제외됩니다.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0 sm:px-6 pb-6">
+        <CardContent className="p-0 pb-6 sm:px-6">
           {loading ? (
-            <div className="flex items-center gap-2 text-muted-foreground py-12 px-6">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              불러오는 중…
+            <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+              <RefreshCw className="h-5 w-5 animate-spin" />
+              <span>불러오는 중…</span>
             </div>
           ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-12 text-center px-6">
-              등록된 규칙이 없습니다. 「새 규칙」으로 추가하거나 Supabase SQL로
-              시드 데이터를 넣어 주세요.
-            </p>
+            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <div className="rounded-full bg-muted/60 p-4">
+                <Inbox className="h-10 w-10 text-muted-foreground" aria-hidden />
+              </div>
+              <p className="mt-4 text-sm font-medium text-foreground">
+                아직 등록된 규칙이 없습니다
+              </p>
+              <p className="mt-2 max-w-md text-sm text-muted-foreground">
+                새 규칙을 추가하거나, 샘플 CSV를 받아 여러 개를 한 번에 올릴 수
+                있습니다.
+              </p>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <Button type="button" className="gap-2" onClick={openCreate}>
+                  <Plus className="h-4 w-4" />
+                  새 규칙 추가
+                </Button>
+                <GuidelinesCsvUpload onImported={load} disabled={false} />
+              </div>
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -279,10 +383,10 @@ export function GuidelinesDashboard() {
                   <TableHead>카테고리</TableHead>
                   <TableHead>규칙 이름</TableHead>
                   <TableHead className="min-w-[200px]">설명</TableHead>
-                  <TableHead className="hidden lg:table-cell max-w-[140px]">
+                  <TableHead className="hidden max-w-[140px] lg:table-cell">
                     나쁜 예
                   </TableHead>
-                  <TableHead className="hidden lg:table-cell max-w-[140px]">
+                  <TableHead className="hidden max-w-[140px] lg:table-cell">
                     좋은 예
                   </TableHead>
                   <TableHead className="w-[120px] text-right">작업</TableHead>
@@ -317,13 +421,13 @@ export function GuidelinesDashboard() {
                     </TableCell>
                     <TableCell className="font-medium">{g.category}</TableCell>
                     <TableCell>{g.rule_name}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs max-w-xs whitespace-pre-wrap">
+                    <TableCell className="max-w-xs whitespace-pre-wrap text-xs text-muted-foreground">
                       {g.description}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground whitespace-pre-wrap">
+                    <TableCell className="hidden whitespace-pre-wrap text-xs text-muted-foreground lg:table-cell">
                       {g.example_bad ?? "—"}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground whitespace-pre-wrap">
+                    <TableCell className="hidden whitespace-pre-wrap text-xs text-muted-foreground lg:table-cell">
                       {g.example_good ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
@@ -359,9 +463,7 @@ export function GuidelinesDashboard() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {editing ? "규칙 수정" : "새 규칙 추가"}
-            </DialogTitle>
+            <DialogTitle>{editing ? "규칙 수정" : "새 규칙 추가"}</DialogTitle>
             <DialogDescription>
               저장 시 DB에 반영되며, 활성 규칙만 UX Writing 검수 API에 사용됩니다.
             </DialogDescription>
@@ -439,7 +541,7 @@ export function GuidelinesDashboard() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setDialogOpen(false)}

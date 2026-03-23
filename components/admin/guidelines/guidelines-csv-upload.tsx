@@ -9,6 +9,7 @@ import {
   normalizeImportRow,
   type GuidelineImportRow,
 } from "@/lib/ux-writing/guideline-import";
+import { cn } from "@/lib/utils";
 
 const SAMPLE_FIELDS = [
   "category",
@@ -60,12 +61,16 @@ function pickField(
   return undefined;
 }
 
+const toolbarBtn =
+  "h-9 min-h-9 gap-2 px-3 sm:px-4 text-sm font-medium";
+
 type Props = {
   onImported: () => void;
   disabled?: boolean;
+  className?: string;
 };
 
-export function GuidelinesCsvUpload({ onImported, disabled }: Props) {
+export function GuidelinesCsvUpload({ onImported, disabled, className }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -92,9 +97,7 @@ export function GuidelinesCsvUpload({ onImported, disabled }: Props) {
           return;
         }
         const n =
-          typeof data.count === "number"
-            ? data.count
-            : items.length;
+          typeof data.count === "number" ? data.count : items.length;
         toast.success(`${n}개의 가이드라인이 업데이트되었습니다`);
         onImported();
       } catch {
@@ -159,44 +162,40 @@ export function GuidelinesCsvUpload({ onImported, disabled }: Props) {
   );
 
   return (
-    <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".csv,text/csv"
-          className="sr-only"
-          aria-hidden
-          tabIndex={-1}
-          onChange={onFileChange}
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="sr-only"
+        aria-hidden
+        tabIndex={-1}
+        onChange={onFileChange}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        className={toolbarBtn}
+        disabled={disabled || uploading}
+        aria-label="CSV 파일 업로드"
+        onClick={() => inputRef.current?.click()}
+      >
+        <Upload
+          className={cn("h-4 w-4 shrink-0", uploading && "animate-pulse")}
         />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled || uploading}
-          aria-label="CSV 파일 업로드"
-          onClick={() => inputRef.current?.click()}
-        >
-          <Upload className={uploading ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
-          {uploading ? "처리 중…" : "CSV 업로드"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground hover:text-foreground"
-          disabled={disabled || uploading}
-          aria-label="샘플 CSV 양식 다운로드"
-          onClick={() => downloadSampleGuidelinesCsv()}
-        >
-          <Download className="h-4 w-4" />
-          샘플 양식 다운로드
-        </Button>
-      </div>
-      <p className="text-[11px] leading-snug text-muted-foreground sm:max-w-[280px]">
-        반드시 UTF-8 형식으로 저장 후 업로드해주세요.
-      </p>
+        {uploading ? "처리 중…" : "CSV 업로드"}
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className={toolbarBtn}
+        disabled={disabled || uploading}
+        aria-label="샘플 CSV 양식 다운로드"
+        onClick={() => downloadSampleGuidelinesCsv()}
+      >
+        <Download className="h-4 w-4 shrink-0" />
+        샘플 양식 받기
+      </Button>
     </div>
   );
 }
