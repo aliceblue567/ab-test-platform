@@ -55,7 +55,7 @@ export async function runUxWritingCheck(
   const client = new OpenAI({
     apiKey,
     timeout: OPENAI_TIMEOUT_MS,
-    maxRetries: 0,
+    maxRetries: 2,
   });
 
   const safeUser = sanitizePromptText(userText, MAX_USER);

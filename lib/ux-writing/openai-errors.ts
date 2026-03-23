@@ -41,7 +41,7 @@ export function mapOpenAIError(err: unknown): UxWritingCheckFailed {
 
   if (status === 429) {
     return new UxWritingCheckFailed(
-      "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+      "OpenAI 호출 한도(분당·일일 등)에 걸렸습니다. 1~2분 뒤 다시 시도하거나, platform.openai.com 에서 사용량·요금제를 확인해 주세요.",
       "rate_limit",
       429
     );

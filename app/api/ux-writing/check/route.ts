@@ -6,8 +6,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fetchGuidelines } from "@/lib/ux-writing/guidelines";
 import { runUxWritingCheck } from "@/lib/ux-writing/openai-check";
-import { getClientIp } from "@/lib/ux-writing/request-ip";
-import { consumeWebWritingCheckIpRateLimit } from "@/lib/ux-writing/rate-limit";
 import { UxWritingCheckFailed } from "@/lib/ux-writing/openai-errors";
 
 const bodySchema = z.object({
@@ -27,20 +25,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const ip = getClientIp(request);
-  const ipLimit = consumeWebWritingCheckIpRateLimit(ip);
-  if (!ipLimit.allowed) {
-    return NextResponse.json(
-      {
-        error: "Too Many Requests",
-        message: `요청이 너무 많습니다. ${ipLimit.retryAfterSec}초 후 다시 시도해 주세요.`,
-      },
-      {
-        status: 429,
-        headers: { "Retry-After": String(ipLimit.retryAfterSec) },
-      }
-    );
-  }
+  /* IP 레이트 리밋 없음: 서버리스 인스턴스마다 메모리가 분리되어 오탐 429가 잦고,
+   * 동일 메시지가 OpenAI 429와 겹침. 남용 완화는 Sec-Fetch-Site + OpenAI 쿼터·(선택) WAF에 의존. */
 
   let json: unknown;
   try {

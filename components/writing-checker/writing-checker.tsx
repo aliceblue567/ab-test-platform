@@ -21,7 +21,7 @@ function messageForHttpStatus(status: number, fallback: string): string {
     return "이 페이지에서만 검수를 사용할 수 있습니다.";
   }
   if (status === 429) {
-    return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+    return "호출 한도에 걸렸습니다. 잠시 후 다시 시도해 주세요.";
   }
   if (status === 503 || status === 502) {
     return "서비스가 일시적으로 불안정합니다. 잠시 후 다시 시도해 주세요.";
