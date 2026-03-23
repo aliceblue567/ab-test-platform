@@ -9,6 +9,7 @@ import {
   emptyToNull,
   updateGuidelineSchema,
 } from "@/lib/ux-writing/guideline-schemas";
+import { toApiErrorMessage } from "@/lib/api-error";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -79,9 +80,8 @@ export async function PATCH(req: Request, context: RouteContext) {
     }
     return NextResponse.json(data);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Internal error";
     return NextResponse.json(
-      { error: message, code: "INTERNAL_ERROR" },
+      { error: toApiErrorMessage(e), code: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }
@@ -111,9 +111,8 @@ export async function DELETE(_req: Request, context: RouteContext) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Internal error";
     return NextResponse.json(
-      { error: message, code: "INTERNAL_ERROR" },
+      { error: toApiErrorMessage(e), code: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }

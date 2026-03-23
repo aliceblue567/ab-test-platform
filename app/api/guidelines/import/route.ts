@@ -9,6 +9,7 @@ import {
   guidelineImportPayloadSchema,
 } from "@/lib/ux-writing/guideline-import";
 import { normalizeExamples } from "@/lib/ux-writing/guideline-schemas";
+import { toApiErrorMessage } from "@/lib/api-error";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -86,9 +87,8 @@ export async function POST(req: Request) {
       message: `${upsertPayload.length}개의 가이드라인이 업데이트되었습니다`,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Internal error";
     return NextResponse.json(
-      { error: message, code: "INTERNAL_ERROR" },
+      { error: toApiErrorMessage(e), code: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }

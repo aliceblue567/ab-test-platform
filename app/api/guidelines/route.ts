@@ -9,6 +9,7 @@ import {
   createGuidelineSchema,
   normalizeExamples,
 } from "@/lib/ux-writing/guideline-schemas";
+import { toApiErrorMessage } from "@/lib/api-error";
 
 export async function GET() {
   const session = await auth();
@@ -23,9 +24,8 @@ export async function GET() {
     const list = await fetchAllGuidelines();
     return NextResponse.json(list);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Internal error";
     return NextResponse.json(
-      { error: message, code: "INTERNAL_ERROR" },
+      { error: toApiErrorMessage(e), code: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }
@@ -83,9 +83,8 @@ export async function POST(req: Request) {
     if (error) throw error;
     return NextResponse.json(data, { status: 201 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Internal error";
     return NextResponse.json(
-      { error: message, code: "INTERNAL_ERROR" },
+      { error: toApiErrorMessage(e), code: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }
