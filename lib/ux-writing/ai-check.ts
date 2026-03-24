@@ -1,3 +1,7 @@
+/**
+ * Gemini 호출은 이 모듈(서버 전용)에서만 수행합니다.
+ * GEMINI_API_KEY는 클라이언트에 노출되지 않습니다 — API Route에서만 import 하세요.
+ */
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import type { GuidelineRow } from "@/lib/ux-writing/guidelines";

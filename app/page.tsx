@@ -24,6 +24,12 @@ export default function HomePage() {
         </div>
       </nav>
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+        <p
+          className="mb-6 rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-4 py-3 text-center text-sm leading-relaxed text-zinc-300"
+          role="note"
+        >
+          이 서비스는 하나투어 UX 가이드를 기반으로 작동합니다.
+        </p>
         <WritingChecker />
       </div>
     </main>
