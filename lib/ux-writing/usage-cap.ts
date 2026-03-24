@@ -25,7 +25,7 @@ export class UsageCapExceededError extends Error {
 }
 
 /**
- * OpenAI 호출 전: 한도 초과면 UsageCapExceededError.
+ * AI 호출 전: 한도 초과면 UsageCapExceededError.
  * Supabase `ux_writing_usage` 테이블 필요.
  */
 export async function assertUxWritingQuotaAvailable(): Promise<void> {

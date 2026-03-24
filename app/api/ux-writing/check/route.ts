@@ -5,8 +5,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fetchGuidelines } from "@/lib/ux-writing/guidelines";
-import { runUxWritingCheck } from "@/lib/ux-writing/openai-check";
-import { UxWritingCheckFailed } from "@/lib/ux-writing/openai-errors";
+import { runUxWritingCheck } from "@/lib/ux-writing/ai-check";
+import { UxWritingCheckFailed } from "@/lib/ux-writing/ai-errors";
 import {
   assertUxWritingQuotaAvailable,
   recordUxWritingCheckSuccess,
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   }
 
   /* IP 레이트 리밋 없음: 서버리스 인스턴스마다 메모리가 분리되어 오탐 429가 잦고,
-   * 동일 메시지가 OpenAI 429와 겹침. 남용 완화는 Sec-Fetch-Site + OpenAI 쿼터·(선택) WAF에 의존. */
+   * 동일 메시지가 AI 서비스 429와 겹친다. 남용 완화는 Sec-Fetch-Site + 서비스 쿼터·(선택) WAF에 의존. */
 
   let json: unknown;
   try {

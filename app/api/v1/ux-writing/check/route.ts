@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fetchGuidelines } from "@/lib/ux-writing/guidelines";
-import { runUxWritingCheck } from "@/lib/ux-writing/openai-check";
+import { runUxWritingCheck } from "@/lib/ux-writing/ai-check";
 import { verifyUxCheckApiKey } from "@/lib/ux-writing/verify-api-key";
 import { resolveUxWritingCors } from "@/lib/ux-writing/cors";
 import { getClientIp } from "@/lib/ux-writing/request-ip";
@@ -9,7 +9,7 @@ import {
   consumeIpRateLimit,
   consumeRateLimit,
 } from "@/lib/ux-writing/rate-limit";
-import { UxWritingCheckFailed } from "@/lib/ux-writing/openai-errors";
+import { UxWritingCheckFailed } from "@/lib/ux-writing/ai-errors";
 import {
   assertUxWritingQuotaAvailable,
   recordUxWritingCheckSuccess,

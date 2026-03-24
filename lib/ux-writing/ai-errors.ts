@@ -33,7 +33,7 @@ function readMessage(err: unknown): string {
   return typeof m === "string" ? m : "";
 }
 
-export function mapOpenAIError(err: unknown): UxWritingCheckFailed {
+export function mapAiError(err: unknown): UxWritingCheckFailed {
   if (err instanceof UxWritingCheckFailed) return err;
 
   const status = readStatus(err);
@@ -41,12 +41,12 @@ export function mapOpenAIError(err: unknown): UxWritingCheckFailed {
 
   if (status === 429) {
     return new UxWritingCheckFailed(
-      "OpenAI 호출 한도(분당·일일 등)에 걸렸습니다. 1~2분 뒤 다시 시도하거나, platform.openai.com 에서 사용량·요금제를 확인해 주세요.",
+      "AI 서비스 호출 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.",
       "rate_limit",
       429
     );
   }
-  if (status === 503 || status === 502) {
+  if (status === 503 || status === 502 || status === 500) {
     return new UxWritingCheckFailed(
       "AI 서비스가 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
       "overloaded",
@@ -64,6 +64,7 @@ export function mapOpenAIError(err: unknown): UxWritingCheckFailed {
       : "";
 
   if (
+    /UX_WRITING_TIMEOUT/.test(msg) ||
     causeCode === "ETIMEDOUT" ||
     /timeout/i.test(msg) ||
     /timed out/i.test(msg)
