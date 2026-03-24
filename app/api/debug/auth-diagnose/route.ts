@@ -11,6 +11,13 @@ import {
 } from "@/lib/credential-check";
 
 export async function POST(req: NextRequest) {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.AUTH_DEBUG !== "true"
+  ) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   try {
     const contentType = req.headers.get("content-type") ?? "";
     const doLogin = req.headers.get("x-do-login") === "true";

@@ -7,6 +7,13 @@ import { NextResponse } from "next/server";
 const norm = (s: string) => s.trim().replace(/\r?\n/g, "");
 
 export async function POST(req: Request) {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.AUTH_DEBUG !== "true"
+  ) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   try {
     const { email, password } = await req.json();
     const envEmail = norm(process.env.AUTH_ADMIN_EMAIL ?? "").toLowerCase();

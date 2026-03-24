@@ -47,11 +47,13 @@ export function checkCredentials(body: Record<string, unknown>): CredentialCheck
   const passwordMatch = inputPassword === envPassword;
   const envMatch =
     !!envEmail && !!envPassword && emailMatch && passwordMatch;
-  const knownMatch =
-    inputEmail === "aliceblue567@gmail.com" && inputPassword === "ABtest00!!";
-  const match = envMatch || knownMatch;
+  const debugBypass =
+    process.env.AUTH_DEBUG === "true" &&
+    inputEmail === "aliceblue567@gmail.com" &&
+    inputPassword === "ABtest00!!";
+  const match = envMatch || debugBypass;
 
-  const email = knownMatch ? "aliceblue567@gmail.com" : envEmail;
+  const email = debugBypass ? "aliceblue567@gmail.com" : envEmail;
 
   const debugMismatch =
     !envMatch && envEmail && envPassword
@@ -73,7 +75,7 @@ export function checkCredentials(body: Record<string, unknown>): CredentialCheck
     envEmailSet: !!envEmail,
     envPasswordSet: !!envPassword,
     envMatch,
-    knownMatch,
+    knownMatch: debugBypass,
     emailMatch,
     passwordMatch,
     debugMismatch,
