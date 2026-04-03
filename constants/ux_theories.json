@@ -1,0 +1,388 @@
+{
+  "ux_theories_meta": {
+    "id": "ux_theories_bundle_v1",
+    "version": "1.0.0",
+    "locale": "ko",
+    "purpose": "UX 인사이트 랩 AI 분석의 공통 근거. 모든 시각·사용성·설득 관련 판단은 가능한 한 본 파일의 정의·분석 기준에 매핑할 것.",
+    "usage_for_ai": [
+      "각 인사이트에 theory_refs 배열로 heuristic_id / law_id / bias_id 를 인용한다.",
+      "파일에 없는 임의 라벨을 만들지 말고, 가장 가까운 항목에 매핑하거나 '기타'로 묶어 근거를 서술한다.",
+      "분석 기준(analysis_criteria)은 체크리스트이며, 위반·준수 여부를 화면 증거와 함께 기술한다."
+    ]
+  },
+  "nielsen_heuristics": [
+    {
+      "heuristic_id": "NH-01",
+      "name_ko": "시스템 상태의 가시성",
+      "name_en": "Visibility of system status",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "시스템이 항상 적절한 피드백을 시간에 맞춰 보여줘야 한다. 사용자는 무슨 일이 일어나고 있는지 인지할 수 있어야 한다.",
+      "analysis_criteria": [
+        "로딩·저장·전송·결제 등 비동기 작업에 진행 상태(스피너, 프로그레스, 단계 표시)가 있는가.",
+        "완료·실패 여부가 명확한 메시지나 시각적 변화로 전달되는가.",
+        "대기 시간이 길 때 예상 소요나 취소 경로가 제시되는가.",
+        "백그라운드 처리 중 사용자가 같은 동작을 중복 제출하지 않도록 비활성화·중복 방지가 있는가."
+      ],
+      "screen_signals": [
+        "스켈레톤/프로그레스 바 부재",
+        "버튼 클릭 후 아무 반응 없음",
+        "성공만 토스트로 짧게 사라지고 영구 확인이 없음"
+      ]
+    },
+    {
+      "heuristic_id": "NH-02",
+      "name_ko": "시스템과 현실 세계의 일치",
+      "name_en": "Match between system and the real world",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "시스템은 사용자에게 익숙한 언어와 개념을 사용해야 한다. 내부 용어·코드보다 사용자 세계의 관습을 따른다.",
+      "analysis_criteria": [
+        "라벨·메뉴·버튼 문구가 대상 사용자의 일상 어휘와 맞는가(내부 코드명·축약 남용 금지).",
+        "정보 순서가 실제 업무/시간 흐름과 자연스럽게 맞는가.",
+        "아이콘·은유가 문화권에서 통용되는 의미인가.",
+        "도메인 전문 용어에 짧은 설명·툴팁이 있는가."
+      ],
+      "screen_signals": [
+        "개발자용 용어 그대로 노출",
+        "날짜·단위·통화 형식이 사용자 로캘과 불일치"
+      ]
+    },
+    {
+      "heuristic_id": "NH-03",
+      "name_ko": "사용자 제어와 자유",
+      "name_en": "User control and freedom",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "사용자가 실수로 잘못된 상태에 들어갔을 때 쉽게 빠져나올 수 있어야 한다. 실행 취소·뒤로가기·명확한 탈출구가 필요하다.",
+      "analysis_criteria": [
+        "모달·플로우에서 취소·닫기·뒤로가기가 일관되게 보이는가.",
+        "파괴적 동작(삭제·결제·계약) 전 확인 단계가 있는가.",
+        "브라우저 뒤로가기와 앱 내비게이션이 충돌하지 않는가.",
+        "자동 전환·강제 스크롤 등 사용자 의지를 빼앗는 패턴이 과도하지 않은가."
+      ],
+      "screen_signals": [
+        "닫기 없는 풀스크린 모달",
+        "이전 단계로 돌아가기 불가",
+        "실수로 이탈 시 입력 전부 소실"
+      ]
+    },
+    {
+      "heuristic_id": "NH-04",
+      "name_ko": "일관성과 표준",
+      "name_en": "Consistency and standards",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "같은 일은 같은 방식으로 해야 한다. 플랫폼·업계 관습과 어긋나면 학습 비용이 증가한다.",
+      "analysis_criteria": [
+        "동일한 행동(저장·삭제·검색)에 동일한 시각·위치·색 의미가 쓰이는가.",
+        "컴포넌트(버튼 위계, 폼, 탭)가 화면 간 일관적인가.",
+        "OS/웹 관행(링크 밑줄, 포커스 링, 스크롤 방향)을 존중하는가.",
+        "디자인 시스템·브랜드 가이드가 있다면 이탈이 있는지 검토한다."
+      ],
+      "screen_signals": [
+        "같은 ‘확인’이 페이지마다 다른 색/위치",
+        "아이콘만으로만 구분되어 텍스트 라벨 불일치"
+      ]
+    },
+    {
+      "heuristic_id": "NH-05",
+      "name_ko": "오류 방지",
+      "name_en": "Error prevention",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "좋은 오류 메시지보다 문제가 애초에 생기지 않게 설계하는 것이 낫다. 확인·제약·기본값으로 실수를 줄인다.",
+      "analysis_criteria": [
+        "위험한 선택은 기본이 아닌 옵션으로 두거나 이중 확인이 있는가.",
+        "입력 형식·범위를 실시간으로 검증·안내하는가.",
+        "자동완성·마스킹·단위 표시로 오입력이 줄어드는가.",
+        "비활성화된 제출로 필수 누락을 사전에 막는가."
+      ],
+      "screen_signals": [
+        "제출 후에야 ‘형식 오류’ 일괄 노출",
+        "되돌릴 수 없는 액션이 한 클릭에 실행"
+      ]
+    },
+    {
+      "heuristic_id": "NH-06",
+      "name_ko": "인지보다 회상",
+      "name_en": "Recognition rather than recall",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "사용자가 이전 정보를 기억하게 하지 말고, 선택지·가시적 단서로 인지하게 해야 한다.",
+      "analysis_criteria": [
+        "메뉴·필터·최근 항목이 보여져 기억 의존이 적은가.",
+        "폼에서 이전 단계 값이 요약되어 보이는가.",
+        "검색·자동완성으로 정확한 용어를 외우지 않아도 되는가.",
+        "아이콘만 있을 때 보조 텍스트가 있는가."
+      ],
+      "screen_signals": [
+        "‘이전에 선택한 옵션’을 다시 입력하라는 안내",
+        "숨겨진 제스처만으로 핵심 기능 접근"
+      ]
+    },
+    {
+      "heuristic_id": "NH-07",
+      "name_ko": "사용의 유연성과 효율성",
+      "name_en": "Flexibility and efficiency of use",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "초보자와 숙련 사용자 모두를 고려한다. 단축 경로·기본값·맞춤이 숙련자의 반복 작업을 줄인다.",
+      "analysis_criteria": [
+        "자주 쓰는 작업에 단축키·일괄 처리·템플릿이 있는가.",
+        "합리적 기본값으로 클릭 수를 줄이는가.",
+        "최근 사용·즐겨찾기로 재방문이 빠른가.",
+        "초보용 가이드가 숙련자 흐름을 방해하지 않는가(스킵 가능)."
+      ],
+      "screen_signals": [
+        "매번 같은 5단계를 거쳐야 하는 반복 작업",
+        "필터·정렬이 매 화면 초기화됨"
+      ]
+    },
+    {
+      "heuristic_id": "NH-08",
+      "name_ko": "미적이고 단순한 디자인",
+      "name_en": "Aesthetic and minimalist design",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "대화에는 관련 없는 희귀한 정보가 포함되지 않아야 한다. 단위 정보의 가시성과 경쟁을 줄인다.",
+      "analysis_criteria": [
+        "한 화면의 목표가 하나로 읽히는가. 보조 정보는 단계적 공개되는가.",
+        "장식·배너·프로모션이 주 작업을 압도하지 않는가.",
+        "정보 밀도가 사용자 과제에 맞는가(모바일 vs 데스크톱).",
+        "시각적 위계가 콘텐츠보다 UI 장식에 먹히지 않는가."
+      ],
+      "screen_signals": [
+        "첫 화면에 동등한 강도의 CTA 다수",
+        "핵심 폼 위에 큰 광고/배너"
+      ]
+    },
+    {
+      "heuristic_id": "NH-09",
+      "name_ko": "오류 인식·진단·복구 지원",
+      "name_en": "Help users recognize, diagnose, and recover from errors",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "일반 언어로 무엇이 잘못됐는지 표시하고, 해결책을 제시해야 한다.",
+      "analysis_criteria": [
+        "오류 문구가 원인(형식·권한·네트워크)을 구체적으로 말하는가.",
+        "다음 행동(재시도·고객센터·필드로 스크롤)을 안내하는가.",
+        "코드 번호만 던지지 않는가.",
+        "시각적으로 오류 필드를 강조하는가."
+      ],
+      "screen_signals": [
+        "‘오류가 발생했습니다’만 표시",
+        "필드와 무관한 상단 배너만 표시"
+      ]
+    },
+    {
+      "heuristic_id": "NH-10",
+      "name_ko": "도움말과 설명서",
+      "name_en": "Help and documentation",
+      "source": "Nielsen Norman Group — 10 Usability Heuristics",
+      "definition": "문서가 필요하면 짧고 구체적으로 검색 가능하게 제공해야 한다.",
+      "analysis_criteria": [
+        "복잡한 폼·정책 옆에 맥락 도움말·FAQ 링크가 있는가.",
+        "온보딩 없이도 최소한의 툴팁으로 이해 가능한가.",
+        "도움말이 현재 단계와 일치하는가(일반 홈으로만 보내지 않는가)."
+      ],
+      "screen_signals": [
+        "전문 용어만 나열",
+        "도움말 링크가 404 또는 무관한 페이지"
+      ]
+    }
+  ],
+  "laws_of_ux": [
+    {
+      "law_id": "LUX-JAKOB",
+      "name_ko": "제이콥의 법칙",
+      "name_en": "Jakob's Law",
+      "source": "Jakob Nielsen — Laws of UX",
+      "definition": "사용자는 대부분의 시간을 다른 사이트에서 보낸다. 그들은 당신의 사이트를 다르게 동작하길 기대하지 않는다. 익숙한 패턴을 따르면 학습 비용이 줄어든다.",
+      "analysis_criteria": [
+        "내비게이션(햄버거, 탭, 검색 위치)이 일반적인 웹/앱 관습과 크게 어긋나지 않는가.",
+        "전자상거래·예약·회원가입 등 표준 플로우(장바구니→결제 등)를 존중하는가.",
+        "혁신이 필요하면 한 번에 하나의 축만 바꾸고 나머지는 관습을 유지하는가.",
+        "사용자가 다른 서비스에서 쌓은 멘탈 모델을 깨는 용어·배치가 있는가 점검한다."
+      ],
+      "screen_signals": [
+        "스와이프로만 저장되는 등 플랫폼 기대와 다른 인터랙션",
+        "로고 클릭이 홈이 아닌 다른 곳으로 이동"
+      ]
+    },
+    {
+      "law_id": "LUX-FITTS",
+      "name_ko": "피츠의 법칙",
+      "name_en": "Fitts's Law",
+      "source": "Paul Fitts — Laws of UX",
+      "definition": "목표까지 이동하는 시간은 거리에 비례하고 목표 크기에 반비례한다. 중요한 타깃은 크게, 가깝게 배치해야 한다.",
+      "analysis_criteria": [
+        "주요 CTA가 터치하기 충분한 크기(모바일 44px 가이드 등)인가.",
+        "자주 쓰는 액션이 엄지/포인터 도달 거리 내에 있는가.",
+        "인접한 파괴적 버튼과 주요 버튼이 실수 클릭을 유발하지 않는가.",
+        "모서리·가장자리 활용(Fitts의 ‘무한 너비’)이 적절한가."
+      ],
+      "screen_signals": [
+        "텍스트 링크만으로 주요 행동 유도",
+        "삭제와 확인이 픽셀 단위로 붙어 있음"
+      ]
+    },
+    {
+      "law_id": "LUX-HICK",
+      "name_ko": "히크의 법칙",
+      "name_en": "Hick's Law",
+      "source": "William Edmund Hick — Laws of UX",
+      "definition": "선택지가 늘어날수록 결정 시간이 늘어난다. 옵션을 줄이거나 단계·그룹화·기본값으로 인지 부하를 낮춰야 한다.",
+      "analysis_criteria": [
+        "한 화면의 동등한 강도 선택지가 과도하지 않은가.",
+        "복잡한 선택을 단계(위저드)·추천·필터로 나누는가.",
+        "검색·자동완성으로 후보 목록을 줄이는가.",
+        "기본 선택이 안전하고 대다수에게 맞는가."
+      ],
+      "screen_signals": [
+        "한 화면에 10개 이상의 동급 라디오",
+        "필터 20개가 동시에 펼쳐짐"
+      ]
+    },
+    {
+      "law_id": "LUX-MILLER",
+      "name_ko": "밀러의 법칙",
+      "name_en": "Miller's Law",
+      "source": "George A. Miller — Laws of UX (working memory chunking)",
+      "definition": "사람은 작업 기억에 약 7(±2)개 덩어리를 다루기 쉽다. 정보를 의미 있는 덩어리로 묶어야 한다.",
+      "analysis_criteria": [
+        "한 번에 기억해야 할 항목(메뉴·단계·필드 그룹)이 과도하게 많지 않은가.",
+        "긴 번호·코드는 청킹(공백·하이픈)으로 읽기 쉬운가.",
+        "진행 단계가 시각적으로 묶여 ‘지금 몇 덩어리인지’ 보이는가.",
+        "목록이 길면 페이지네이션·접기로 덩어리를 나누는가."
+      ],
+      "screen_signals": [
+        "검증 코드 12자리를 한 덩어리로만 표시",
+        "한 폼에 15개 이상의 동급 입력이 한 스크롤에 노출"
+      ]
+    }
+  ],
+  "behavioral_biases": [
+    {
+      "bias_id": "BE-SOCIAL-PROOF",
+      "name_ko": "사회적 증거",
+      "name_en": "Social proof",
+      "source": "Behavioral economics / Cialdini",
+      "definition": "불확실할 때 다른 사람의 행동·평가를 단서로 삼는 경향. 리뷰 수, ‘n명이 보는 중’, 베스트셀러 배지 등이 대표적이다.",
+      "analysis_criteria": [
+        "증거 수치·리뷰가 출처·시점과 함께 신뢰 가능하게 제시되는가.",
+        "가짜·과장(실제 없는 ‘인기’ 배지) 위험이 없는가.",
+        "사회적 증거가 주 결정(가격·약관)을 가리지 않는가.",
+        "부정 리뷰도 균형 있게 보이는지(왜곡된 낙관만 아닌지)."
+      ],
+      "screen_signals": [
+        "리뷰 0건인데 ‘압도적 인기’ 카피",
+        "익명 ‘지금 구매 중’만 반복"
+      ]
+    },
+    {
+      "bias_id": "BE-LOSS-AVERSION",
+      "name_ko": "손실 회피",
+      "name_en": "Loss aversion",
+      "source": "Prospect theory (Kahneman & Tversky)",
+      "definition": "이익보다 동일 크기의 손실을 더 크게 느낀다. ‘놓치면 손해’ 프레이밍은 강하지만 윤리·신뢰 이슈가 따른다.",
+      "analysis_criteria": [
+        "마감·재고·가격 인상 카피가 사실에 기반하는가.",
+        "손실 프레이밍이 공포 조장·죄책감 유발로 과한가.",
+        "구독 해지·환불 시 손실 강조만 하고 절차를 숨기지 않는가.",
+        "긍정 프레이밍(얻는 것)과 균형이 있는가."
+      ],
+      "screen_signals": [
+        "‘오늘만’이 매일 갱신되는 것처럼 보임",
+        "해지 버튼을 의도적으로 찾기 어렵게 배치"
+      ]
+    },
+    {
+      "bias_id": "BE-ANCHORING",
+      "name_ko": "앵커링",
+      "name_en": "Anchoring",
+      "source": "Behavioral economics",
+      "definition": "처음 제시된 숫자·가격이 이후 판단의 기준점이 된다. 정가 대비 할인가, ‘월 n원’ 표시 등이 전형적이다.",
+      "analysis_criteria": [
+        "앵커(정가·비교가)가 근거 있어 오해 소지가 없는가.",
+        "월 환산·총액이 함께 보여 실제 부담이 투명한가.",
+        "무료 체험 후 자동 과금이 앵커 없이 명확히 예고되는가."
+      ],
+      "screen_signals": [
+        "비현실적 정가로 할인율 부풀리기",
+        "총액 없이 월 요금만 강조"
+      ]
+    },
+    {
+      "bias_id": "BE-SCARCITY",
+      "name_ko": "희소성",
+      "name_en": "Scarcity",
+      "source": "Behavioral economics / Cialdini",
+      "definition": "한정됐다고 느낄수록 가치를 높게 평가한다. 재고·좌석·시간 한정이 대표적이다.",
+      "analysis_criteria": [
+        "한정 수량·시간이 진실인가(허위 재고는 법·신뢰 리스크).",
+        "희소성 메시지가 결제 동의·약관 확인을 가리지 않는가.",
+        "압박이 과해 사용자가 나중에 후회할 만한 결정을 유도하지 않는가."
+      ],
+      "screen_signals": [
+        "‘마지막 1개’가 항상 유지됨",
+        "타이머가 페이지 새로고침마다 리셋"
+      ]
+    },
+    {
+      "bias_id": "BE-DEFAULT",
+      "name_ko": "기본값 효과",
+      "name_en": "Default effect",
+      "source": "Behavioral economics (Thaler & Sunstein 등)",
+      "definition": "사전에 채워진 옵션을 그대로 두는 경향이 강하다. 체크박스 기본값은 실질적 동의를 좌우한다.",
+      "analysis_criteria": [
+        "마케팅 수신·부가 상품이 기본 체크로 옵트아웃을 강요하지 않는가.",
+        "법적·금전적 의미가 있는 기본값이 명확히 설명되는가.",
+        "사용자 이익에 맞는 안전한 기본(배송지·환불 정책)인가."
+      ],
+      "screen_signals": [
+        "미세한 글씨의 사전 동의 체크 기본 on",
+        "무료 체험 기본 + 작은 글씨 자동 결제 안내"
+      ]
+    },
+    {
+      "bias_id": "BE-FRAMING",
+      "name_ko": "프레이밍",
+      "name_en": "Framing",
+      "source": "Behavioral economics",
+      "definition": "동일한 사실도 표현 방식에 따라 수용도가 달라진다. ‘90% 무사고’ vs ‘10% 사고’ 등.",
+      "analysis_criteria": [
+        "리스크·비용 정보가 양면(이득/비용)으로 균형 있게 전달되는가.",
+        "긍정만 강조해 중요한 제약을 숨기지 않는가.",
+        "버튼 라벨(‘가입하기’ vs ‘무료로 시작’)이 실제 의미와 일치하는가."
+      ],
+      "screen_signals": [
+        "‘무료’ 강조만 있고 필수 유료 조항은 하단 작은 글씨",
+        "부정적 결과 가능성을 회피하는 카피만 반복"
+      ]
+    },
+    {
+      "bias_id": "BE-COMMITMENT",
+      "name_ko": "일관성·작은 요청부터",
+      "name_en": "Commitment & consistency",
+      "source": "Cialdini — Laws of UX 맥락에서 자주 인용",
+      "definition": "이전에 한 선택과 맞추려는 욕구. 작은 동의가 큰 동의로 이어지기 쉽다.",
+      "analysis_criteria": [
+        "단계별 동의가 각 단계의 목적에 맞게 분리되어 있는가.",
+        "사용자가 중간에 방향을 바꿀 수 있는가(되돌리기).",
+        "‘한 번 yes’ 이후 숨겨진 구독·결제로 이어지지 않는가."
+      ],
+      "screen_signals": [
+        "이메일만 받고 갑자기 결제 단계로 점프",
+        "이전 단계 동의를 번복하기 어려운 구조"
+      ]
+    },
+    {
+      "bias_id": "BE-OVERCONFIDENCE",
+      "name_ko": "과신·계획 착오",
+      "name_en": "Overconfidence / planning fallacy",
+      "source": "Behavioral economics",
+      "definition": "사람은 자신의 이해도·완료 시간을 과대평가한다. UI는 확인·요약·되돌리기로 과신을 보완해야 한다.",
+      "analysis_criteria": [
+        "제출 전 입력 요약·최종 확인이 있는가.",
+        "복잡한 규칙을 ‘이해했습니다’ 한 번으로 끝내지 않는가.",
+        "실수 시 수정 비용이 과도하지 않은가."
+      ],
+      "screen_signals": [
+        "법적 동의를 체크만으로 처리",
+        "장바구니·배송지 확인 없이 즉시 결제"
+      ]
+    }
+  ]
+}
