@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ab-test-platform.local/schemas/ux-screen-analysis.v1.schema.json",
+  "title": "ux_screen_analysis_v1",
+  "description": "UX 인사이트 랩 — 단일 화면(스크린) 분석 결과 저장 규격. DB ux_analysis_runs.result_raw / 파싱 후 ux_insights 와 함께 사용.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ux_schema_version",
+    "screen_id",
+    "screen_name",
+    "url_or_path",
+    "visual_analysis",
+    "usability_issues",
+    "user_pain_points",
+    "improvement_suggestions"
+  ],
+  "properties": {
+    "ux_schema_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "이 문서의 규격 버전 (ux_* 메타)"
+    },
+    "ux_analysis_run_id": {
+      "type": "string",
+      "description": "선택. 서버가 채우는 분석 실행 ID (UUID 등)"
+    },
+    "ux_lens_id": {
+      "type": "string",
+      "description": "선택. 적용한 렌즈(페르소나) ID"
+    },
+    "screen_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "화면 고유 ID (클라이언트 임시 ID 또는 DB ux_screens.id)"
+    },
+    "screen_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "사람이 읽는 화면 제목"
+    },
+    "url_or_path": {
+      "type": "string",
+      "description": "캡처 원본 URL, 앱 내 경로, 또는 업로드만 한 경우 placeholder (예: upload://...)"
+    },
+    "visual_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout", "color", "font"],
+      "properties": {
+        "layout": {
+          "type": "string",
+          "description": "레이아웃·정보 위계·밀도 등 시각 구조 분석"
+        },
+        "color": {
+          "type": "string",
+          "description": "색 대비, 브랜드 일관성, 시맨틱 컬러 사용 등"
+        },
+        "font": {
+          "type": "string",
+          "description": "타이포 계층, 크기, 가독성, 폰트 패밀리 인상 등"
+        }
+      }
+    },
+    "usability_issues": {
+      "type": "array",
+      "description": "사용성 문제점 목록",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ux_issue_summary"],
+        "properties": {
+          "ux_issue_id": {
+            "type": "string",
+            "description": "선택. 이슈 안정적 참조용 ID"
+          },
+          "ux_issue_summary": {
+            "type": "string",
+            "minLength": 1,
+            "description": "문제 한 줄 요약"
+          },
+          "ux_issue_detail": {
+            "type": "string",
+            "description": "근거·맥락·재현 단계 등"
+          },
+          "ux_severity": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "ux_category": {
+            "type": "string",
+            "description": "예: 인지부하, 오류방지, 일관성, 접근성"
+          },
+          "ux_evidence": {
+            "type": "string",
+            "description": "스크린 상 인용·영역 설명 등"
+          }
+        }
+      }
+    },
+    "user_pain_points": {
+      "type": "array",
+      "description": "페르소나(렌즈)별 불편·허들",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ux_persona_label", "ux_pain_points"],
+        "properties": {
+          "ux_persona_id": {
+            "type": "string",
+            "description": "선택. 렌즈/페르소나 ID"
+          },
+          "ux_persona_label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "표시용 페르소나 이름 (예: 60대 시니어)"
+          },
+          "ux_pain_points": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "해당 관점에서의 불편 요소 목록 (빈 배열 허용)"
+          }
+        }
+      }
+    },
+    "improvement_suggestions": {
+      "type": "array",
+      "description": "개선 제안 목록",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ux_suggestion"],
+        "properties": {
+          "ux_suggestion": {
+            "type": "string",
+            "minLength": 1,
+            "description": "구체적 개선 제안"
+          },
+          "ux_rationale": {
+            "type": "string",
+            "description": "왜 개선이 필요한지"
+          },
+          "ux_priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "ux_related_issue_id": {
+            "type": "string",
+            "description": "선택. usability_issues[].ux_issue_id 와 연결"
+          }
+        }
+      }
+    }
+  }
+}
