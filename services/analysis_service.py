@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from openai import OpenAI
+from openai import AuthenticationError, OpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
@@ -188,7 +188,8 @@ def analyze_screen_image(
     screen_name: str,
     url_or_path: str,
 ) -> UxScreenAnalysisV1:
-    api_key = os.environ.get("OPENAI_API_KEY")
+    raw_key = os.environ.get("OPENAI_API_KEY") or ""
+    api_key = raw_key.strip().strip('"').strip("'")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not set")
 
@@ -210,21 +211,27 @@ def analyze_screen_image(
         image_media_type = "image/png"
     data_url = f"data:{image_media_type};base64,{b64}"
 
-    completion = client.chat.completions.create(
-        model=model,
-        temperature=0.3,
-        max_tokens=4096,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": user_prompt},
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                ],
-            },
-        ],
-    )
+    try:
+        completion = client.chat.completions.create(
+            model=model,
+            temperature=0.3,
+            max_tokens=4096,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": user_prompt},
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                    ],
+                },
+            ],
+        )
+    except AuthenticationError as e:
+        logger.warning("OpenAI AuthenticationError: %s", e)
+        raise RuntimeError(
+            "OpenAI API 키가 올바르지 않습니다. OPENAI_API_KEY를 확인하세요."
+        ) from e
 
     raw_text = completion.choices[0].message.content or ""
     try:

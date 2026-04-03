@@ -1,4 +1,8 @@
 import OpenAI from "openai";
+import {
+  getTrimmedOpenAiApiKey,
+  mapOpenAiErrorToUserMessage,
+} from "@/lib/ux-insight/openai-client-helpers";
 import { extractJsonObjectFromModelText } from "@/lib/ux-insight/parse-model-json";
 import { buildUxTheoriesSystemPrompt } from "@/lib/ux-insight/theories-system-prompt";
 import {
@@ -51,7 +55,7 @@ export async function runOpenAiScreenAnalysis(params: {
   screenName: string;
   urlOrPath: string;
 }): Promise<UxScreenAnalysisV1> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = getTrimmedOpenAiApiKey();
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is not configured");
   }
@@ -75,21 +79,27 @@ export async function runOpenAiScreenAnalysis(params: {
       : "image/png";
   const dataUrl = `data:${mime};base64,${params.imageBase64}`;
 
-  const completion = await client.chat.completions.create({
-    model,
-    temperature: 0.3,
-    max_tokens: 4096,
-    messages: [
-      { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: userPrompt },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
-      },
-    ],
-  });
+  let completion;
+  try {
+    completion = await client.chat.completions.create({
+      model,
+      temperature: 0.3,
+      max_tokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: userPrompt },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+    });
+  } catch (e) {
+    console.error("[ux-insight] OpenAI chat.completions:", e);
+    throw new Error(mapOpenAiErrorToUserMessage(e));
+  }
 
   const rawText = completion.choices[0]?.message?.content ?? "";
   let data: Record<string, unknown>;

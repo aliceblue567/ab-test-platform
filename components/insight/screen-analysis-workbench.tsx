@@ -78,6 +78,7 @@ export function ScreenAnalysisWorkbench() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<UxScreenAnalysisV1 | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -110,6 +111,7 @@ export function ScreenAnalysisWorkbench() {
     }
     setLoading(true);
     setReport(null);
+    setAnalysisError(null);
     try {
       const fd = new FormData();
       fd.append("image", file);
@@ -126,13 +128,19 @@ export function ScreenAnalysisWorkbench() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(typeof data.error === "string" ? data.error : "분석 실패");
+        const errText =
+          typeof data.error === "string" ? data.error : "분석에 실패했습니다.";
+        setAnalysisError(errText);
+        toast.error("분석에 실패했습니다. 오른쪽 패널의 안내를 확인하세요.");
         return;
       }
       setReport(data as UxScreenAnalysisV1);
+      setAnalysisError(null);
       toast.success("분석이 완료되었습니다.");
     } catch {
-      toast.error("네트워크 오류가 발생했습니다.");
+      const msg = "네트워크 오류가 발생했습니다.";
+      setAnalysisError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -303,7 +311,46 @@ export function ScreenAnalysisWorkbench() {
 
       {/* 우측: 리포트 */}
       <div className="min-w-0 flex-1">
-        {!report && !loading && (
+        {analysisError && !loading && (
+          <Card className="mb-4 border-destructive/50 bg-destructive/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-destructive">
+                분석을 완료할 수 없습니다
+              </CardTitle>
+              <CardDescription className="text-destructive/90">
+                서버가 OpenAI에 연결하지 못했거나 응답 형식이 맞지 않을 때
+                표시됩니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p className="leading-relaxed text-foreground">{analysisError}</p>
+              <ul className="list-inside list-disc space-y-1 text-muted-foreground">
+                <li>
+                  Vercel(또는 호스팅) → Project → Settings → Environment
+                  Variables 에서{" "}
+                  <code className="rounded bg-muted px-1">OPENAI_API_KEY</code>{" "}
+                  확인
+                </li>
+                <li>
+                  키는{" "}
+                  <a
+                    className="text-primary underline"
+                    href="https://platform.openai.com/api-keys"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    platform.openai.com/api-keys
+                  </a>
+                  에서 새로 발급 · 값에 따옴표·앞뒤 공백 없이 붙여넣기
+                </li>
+                <li>저장 후 반드시 Redeploy</li>
+                <li>로컬은 프로젝트 루트 `.env` 에 동일 변수 설정</li>
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        {!report && !loading && !analysisError && (
           <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
             <Sparkles className="mb-3 h-10 w-10 text-muted-foreground" />
             <p className="text-sm font-medium text-muted-foreground">

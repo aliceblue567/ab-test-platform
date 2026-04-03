@@ -64,11 +64,11 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const isKey = msg.includes("OPENAI_API_KEY");
+    const missing = msg.includes("OPENAI_API_KEY is not configured");
     console.error("[ux-insight/analyze]", e);
     return NextResponse.json(
       { error: msg },
-      { status: isKey ? 503 : 422 }
+      { status: missing ? 503 : 502 }
     );
   }
 }

@@ -1,4 +1,8 @@
 import OpenAI from "openai";
+import {
+  getTrimmedOpenAiApiKey,
+  mapOpenAiErrorToUserMessage,
+} from "@/lib/ux-insight/openai-client-helpers";
 import { extractJsonObjectFromModelText } from "@/lib/ux-insight/parse-model-json";
 import { buildUxTheoriesSystemPrompt } from "@/lib/ux-insight/theories-system-prompt";
 import {
@@ -46,7 +50,7 @@ export async function runOpenAiBenchmarkAnalysis(params: {
   personaGoal: string;
   context: string;
 }): Promise<UxBenchmarkAnalysisV1> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = getTrimmedOpenAiApiKey();
   if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
 
   const model = process.env.OPENAI_VISION_MODEL ?? "gpt-4o";
@@ -86,15 +90,21 @@ export async function runOpenAiBenchmarkAnalysis(params: {
     },
   ];
 
-  const completion = await client.chat.completions.create({
-    model,
-    temperature: 0.25,
-    max_tokens: 4096,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content },
-    ],
-  });
+  let completion;
+  try {
+    completion = await client.chat.completions.create({
+      model,
+      temperature: 0.25,
+      max_tokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content },
+      ],
+    });
+  } catch (e) {
+    console.error("[ux-bench] OpenAI:", e);
+    throw new Error(mapOpenAiErrorToUserMessage(e));
+  }
 
   const rawText = completion.choices[0]?.message?.content ?? "";
   let data: Record<string, unknown>;
