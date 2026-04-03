@@ -318,7 +318,7 @@ export function ScreenAnalysisWorkbench() {
                 분석을 완료할 수 없습니다
               </CardTitle>
               <CardDescription className="text-destructive/90">
-                서버가 OpenAI에 연결하지 못했거나 응답 형식이 맞지 않을 때
+                서버가 Gemini에 연결하지 못했거나 응답 형식이 맞지 않을 때
                 표시됩니다.
               </CardDescription>
             </CardHeader>
@@ -328,20 +328,20 @@ export function ScreenAnalysisWorkbench() {
                 <li>
                   Vercel(또는 호스팅) → Project → Settings → Environment
                   Variables 에서{" "}
-                  <code className="rounded bg-muted px-1">OPENAI_API_KEY</code>{" "}
-                  확인
+                  <code className="rounded bg-muted px-1">GEMINI_API_KEY</code>{" "}
+                  확인 (UX 라이팅과 동일 키 사용 가능)
                 </li>
                 <li>
                   키는{" "}
                   <a
                     className="text-primary underline"
-                    href="https://platform.openai.com/api-keys"
+                    href="https://aistudio.google.com/apikey"
                     target="_blank"
                     rel="noreferrer"
                   >
-                    platform.openai.com/api-keys
+                    Google AI Studio
                   </a>
-                  에서 새로 발급 · 값에 따옴표·앞뒤 공백 없이 붙여넣기
+                  에서 발급 · 값에 따옴표·앞뒤 공백 없이 붙여넣기
                 </li>
                 <li>저장 후 반드시 Redeploy</li>
                 <li>로컬은 프로젝트 루트 `.env` 에 동일 변수 설정</li>

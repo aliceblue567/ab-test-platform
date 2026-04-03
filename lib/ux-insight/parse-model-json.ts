@@ -1,4 +1,4 @@
-/** OpenAI chat 응답에서 JSON 객체 추출 */
+/** LLM 텍스트 응답에서 JSON 객체 추출 */
 export function extractJsonObjectFromModelText(text: string): Record<string, unknown> {
   let s = text.trim();
   const fence = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);

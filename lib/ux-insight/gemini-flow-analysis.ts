@@ -1,10 +1,6 @@
-import OpenAI from "openai";
-import {
-  getTrimmedOpenAiApiKey,
-  mapOpenAiErrorToUserMessage,
-} from "@/lib/ux-insight/openai-client-helpers";
 import { extractJsonObjectFromModelText } from "@/lib/ux-insight/parse-model-json";
 import { buildUxTheoriesSystemPrompt } from "@/lib/ux-insight/theories-system-prompt";
+import { generateUxInsightJson } from "@/lib/ux-insight/gemini-vision";
 import {
   UX_FLOW_SCHEMA_VERSION,
   parseUxFlowAnalysisV1,
@@ -41,15 +37,13 @@ ${params.flowTitle}
 이론 ID는 friction_summary나 theory_note에 [NH-01,LUX-HICK] 형태로 넣으세요.`;
 }
 
-export async function runOpenAiFlowAnalysis(params: {
+export async function runGeminiFlowAnalysis(params: {
   images: { base64: string; mediaType: string }[];
   personaAge: string;
   personaProficiency: string;
   personaGoal: string;
   flowTitle: string;
 }): Promise<UxFlowAnalysisV1> {
-  const apiKey = getTrimmedOpenAiApiKey();
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
   if (params.images.length < 2) {
     throw new Error("At least 2 images required for flow analysis");
   }
@@ -57,8 +51,6 @@ export async function runOpenAiFlowAnalysis(params: {
     throw new Error("Maximum 8 images per flow");
   }
 
-  const model = process.env.OPENAI_VISION_MODEL ?? "gpt-4o";
-  const client = new OpenAI({ apiKey });
   const systemPrompt = buildUxTheoriesSystemPrompt();
   const userPrompt = buildUserPrompt({
     stepCount: params.images.length,
@@ -68,45 +60,22 @@ export async function runOpenAiFlowAnalysis(params: {
     flowTitle: params.flowTitle,
   });
 
-  const content: Array<
-    | { type: "text"; text: string }
-    | { type: "image_url"; image_url: { url: string } }
-  > = [
-    { type: "text", text: userPrompt },
-  ];
-  for (let i = 0; i < params.images.length; i++) {
-    const img = params.images[i];
+  const images = params.images.map((img) => {
     const mime =
       img.mediaType && img.mediaType !== "application/octet-stream"
         ? img.mediaType
         : "image/png";
-    content.push({
-      type: "text",
-      text: `--- 화면 ${i} (ux_step_index=${i}) ---`,
-    });
-    content.push({
-      type: "image_url",
-      image_url: { url: `data:${mime};base64,${img.base64}` },
-    });
-  }
+    return { mimeType: mime, dataBase64: img.base64 };
+  });
 
-  let completion;
-  try {
-    completion = await client.chat.completions.create({
-      model,
-      temperature: 0.25,
-      max_tokens: 4096,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content },
-      ],
-    });
-  } catch (e) {
-    console.error("[ux-flow] OpenAI:", e);
-    throw new Error(mapOpenAiErrorToUserMessage(e));
-  }
+  const rawText = await generateUxInsightJson({
+    systemInstruction: systemPrompt,
+    userText: userPrompt,
+    images,
+    temperature: 0.25,
+    maxOutputTokens: 8192,
+  });
 
-  const rawText = completion.choices[0]?.message?.content ?? "";
   let data: Record<string, unknown>;
   try {
     data = extractJsonObjectFromModelText(rawText);

@@ -1,10 +1,6 @@
-import OpenAI from "openai";
-import {
-  getTrimmedOpenAiApiKey,
-  mapOpenAiErrorToUserMessage,
-} from "@/lib/ux-insight/openai-client-helpers";
 import { extractJsonObjectFromModelText } from "@/lib/ux-insight/parse-model-json";
 import { buildUxTheoriesSystemPrompt } from "@/lib/ux-insight/theories-system-prompt";
+import { generateUxInsightJson } from "@/lib/ux-insight/gemini-vision";
 import {
   UX_BENCHMARK_SCHEMA_VERSION,
   parseUxBenchmarkAnalysisV1,
@@ -18,7 +14,7 @@ function buildUserPrompt(params: {
   context: string;
 }): string {
   return `두 이미지를 비교합니다.
-**첫 번째 이미지 = 자사(Our)** 제품 화면, **두 번째 이미지 = 타사(Competitor)** 제품 화면입니다. 동일한 페르소나 기준으로 평가하세요.
+**첫 번째 첨부 이미지 = 자사(Our)** 제품 화면, **두 번째 첨부 이미지 = 타사(Competitor)** 제품 화면입니다. 동일한 페르소나 기준으로 평가하세요.
 
 [페르소나]
 - 연령: ${params.personaAge}
@@ -40,7 +36,7 @@ SWOT은 **자사 vs 타사**를 대비해 실질적인 전략 문장으로 쓰�
 이론 ID는 context나 항목 문장 끝에 [NH-04,TP-05] 형태로 넣을 수 있습니다.`;
 }
 
-export async function runOpenAiBenchmarkAnalysis(params: {
+export async function runGeminiBenchmarkAnalysis(params: {
   oursBase64: string;
   oursMediaType: string;
   competitorBase64: string;
@@ -50,11 +46,6 @@ export async function runOpenAiBenchmarkAnalysis(params: {
   personaGoal: string;
   context: string;
 }): Promise<UxBenchmarkAnalysisV1> {
-  const apiKey = getTrimmedOpenAiApiKey();
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
-
-  const model = process.env.OPENAI_VISION_MODEL ?? "gpt-4o";
-  const client = new OpenAI({ apiKey });
   const systemPrompt = buildUxTheoriesSystemPrompt();
   const userPrompt = buildUserPrompt({
     personaAge: params.personaAge,
@@ -73,40 +64,17 @@ export async function runOpenAiBenchmarkAnalysis(params: {
       ? params.competitorMediaType
       : "image/png";
 
-  const content: Array<
-    | { type: "text"; text: string }
-    | { type: "image_url"; image_url: { url: string } }
-  > = [
-    { type: "text", text: userPrompt },
-    { type: "text", text: "=== 이미지 1: 자사 (Our) ===" },
-    {
-      type: "image_url",
-      image_url: { url: `data:${mimeO};base64,${params.oursBase64}` },
-    },
-    { type: "text", text: "=== 이미지 2: 타사 (Competitor) ===" },
-    {
-      type: "image_url",
-      image_url: { url: `data:${mimeC};base64,${params.competitorBase64}` },
-    },
-  ];
+  const rawText = await generateUxInsightJson({
+    systemInstruction: systemPrompt,
+    userText: userPrompt,
+    images: [
+      { mimeType: mimeO, dataBase64: params.oursBase64 },
+      { mimeType: mimeC, dataBase64: params.competitorBase64 },
+    ],
+    temperature: 0.25,
+    maxOutputTokens: 8192,
+  });
 
-  let completion;
-  try {
-    completion = await client.chat.completions.create({
-      model,
-      temperature: 0.25,
-      max_tokens: 4096,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content },
-      ],
-    });
-  } catch (e) {
-    console.error("[ux-bench] OpenAI:", e);
-    throw new Error(mapOpenAiErrorToUserMessage(e));
-  }
-
-  const rawText = completion.choices[0]?.message?.content ?? "";
   let data: Record<string, unknown>;
   try {
     data = extractJsonObjectFromModelText(rawText);

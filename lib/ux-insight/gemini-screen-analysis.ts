@@ -1,10 +1,6 @@
-import OpenAI from "openai";
-import {
-  getTrimmedOpenAiApiKey,
-  mapOpenAiErrorToUserMessage,
-} from "@/lib/ux-insight/openai-client-helpers";
 import { extractJsonObjectFromModelText } from "@/lib/ux-insight/parse-model-json";
 import { buildUxTheoriesSystemPrompt } from "@/lib/ux-insight/theories-system-prompt";
+import { generateUxInsightJson } from "@/lib/ux-insight/gemini-vision";
 import {
   parseUxScreenAnalysisV1,
   type UxScreenAnalysisV1,
@@ -45,7 +41,7 @@ function buildUserPrompt(params: {
 근거 라이브러리의 ID를 ux_issue_detail 또는 ux_evidence 안에 (예: [NH-05,TP-05]) 형태로 인용하세요.`;
 }
 
-export async function runOpenAiScreenAnalysis(params: {
+export async function runGeminiScreenAnalysis(params: {
   imageBase64: string;
   imageMediaType: string;
   personaAge: string;
@@ -55,14 +51,6 @@ export async function runOpenAiScreenAnalysis(params: {
   screenName: string;
   urlOrPath: string;
 }): Promise<UxScreenAnalysisV1> {
-  const apiKey = getTrimmedOpenAiApiKey();
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
-  }
-
-  const model = process.env.OPENAI_VISION_MODEL ?? "gpt-4o";
-  const client = new OpenAI({ apiKey });
-
   const systemPrompt = buildUxTheoriesSystemPrompt();
   const userPrompt = buildUserPrompt({
     personaAge: params.personaAge,
@@ -73,40 +61,22 @@ export async function runOpenAiScreenAnalysis(params: {
     urlOrPath: params.urlOrPath,
   });
 
-  const mime =
-    params.imageMediaType && params.imageMediaType !== "application/octet-stream"
-      ? params.imageMediaType
-      : "image/png";
-  const dataUrl = `data:${mime};base64,${params.imageBase64}`;
+  const rawText = await generateUxInsightJson({
+    systemInstruction: systemPrompt,
+    userText: userPrompt,
+    images: [
+      {
+        mimeType: params.imageMediaType,
+        dataBase64: params.imageBase64,
+      },
+    ],
+  });
 
-  let completion;
-  try {
-    completion = await client.chat.completions.create({
-      model,
-      temperature: 0.3,
-      max_tokens: 4096,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: userPrompt },
-            { type: "image_url", image_url: { url: dataUrl } },
-          ],
-        },
-      ],
-    });
-  } catch (e) {
-    console.error("[ux-insight] OpenAI chat.completions:", e);
-    throw new Error(mapOpenAiErrorToUserMessage(e));
-  }
-
-  const rawText = completion.choices[0]?.message?.content ?? "";
   let data: Record<string, unknown>;
   try {
     data = extractJsonObjectFromModelText(rawText);
   } catch (e) {
-    console.error("[ux-insight] model output (truncated):", rawText.slice(0, 2000));
+    console.error("[ux-insight] Gemini output (truncated):", rawText.slice(0, 2000));
     throw new Error(
       e instanceof Error ? e.message : "Invalid model JSON output"
     );

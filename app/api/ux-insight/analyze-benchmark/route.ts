@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { runOpenAiBenchmarkAnalysis } from "@/lib/ux-insight/openai-benchmark-analysis";
+import { runGeminiBenchmarkAnalysis } from "@/lib/ux-insight/gemini-benchmark-analysis";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 120;
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
   const bufC = Buffer.from(await competitor.arrayBuffer());
 
   try {
-    const result = await runOpenAiBenchmarkAnalysis({
+    const result = await runGeminiBenchmarkAnalysis({
       oursBase64: bufO.toString("base64"),
       oursMediaType: ours.type || "image/png",
       competitorBase64: bufC.toString("base64"),
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const missing = msg.includes("OPENAI_API_KEY is not configured");
+    const missing = msg.includes("GEMINI_API_KEY is not configured");
     console.error("[ux-insight/analyze-benchmark]", e);
     return NextResponse.json({ error: msg }, { status: missing ? 503 : 502 });
   }

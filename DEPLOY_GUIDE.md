@@ -52,7 +52,7 @@
 ## 2. 민감 정보가 프론트에 나가지 않게
 
 - **`NEXT_PUBLIC_` 접두사**가 붙은 변수만 브라우저에 노출됩니다.  
-- **`GEMINI_API_KEY`**, **`SUPABASE_SERVICE_ROLE_KEY`**, **`OPENAI_API_KEY`** 등은 **`NEXT_PUBLIC_` 없이** 서버 환경 변수로만 설정합니다.  
+- **`GEMINI_API_KEY`**(UX 라이팅·UX 인사이트 랩 공통), **`SUPABASE_SERVICE_ROLE_KEY`** 등은 **`NEXT_PUBLIC_` 없이** 서버 환경 변수로만 설정합니다.  
 - 코드베이스 기준으로 클라이언트 컴포넌트에는 `process.env` 비밀이 없도록 유지했습니다.
 
 ## 3. Supabase SQL (한도·가이드라인)

@@ -1,20 +1,19 @@
 """
-UX 화면 분석 API (FastAPI + OpenAI GPT-4o Vision).
+UX 화면 분석 API (FastAPI + Gemini Vision).
 
 실행 (저장소 루트에서):
   pip install -r services/requirements-analysis.txt
-  export OPENAI_API_KEY=sk-...
+  export GEMINI_API_KEY=...
   uvicorn services.analysis_service:app --host 0.0.0.0 --port 8088 --reload
 
 환경 변수:
-  OPENAI_API_KEY — 필수
-  OPENAI_VISION_MODEL — 기본 gpt-4o
+  GEMINI_API_KEY — 필수
+  GEMINI_VISION_MODEL — 미설정 시 GEMINI_MODEL, 그다음 gemini-2.5-flash
   UX_THEORIES_PATH — 기본: <repo>/constants/ux_theories.json
 """
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
 import os
@@ -25,7 +24,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from openai import AuthenticationError, OpenAI
+from google import genai
+from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
@@ -177,6 +177,14 @@ def _extract_json_object(text: str) -> dict[str, Any]:
     raise ValueError("No JSON object found in model output")
 
 
+def _vision_model_name() -> str:
+    for key in ("GEMINI_VISION_MODEL", "GEMINI_MODEL"):
+        v = (os.environ.get(key) or "").strip()
+        if v:
+            return v
+    return "gemini-2.5-flash"
+
+
 def analyze_screen_image(
     *,
     image_bytes: bytes,
@@ -188,13 +196,13 @@ def analyze_screen_image(
     screen_name: str,
     url_or_path: str,
 ) -> UxScreenAnalysisV1:
-    raw_key = os.environ.get("OPENAI_API_KEY") or ""
+    raw_key = os.environ.get("GEMINI_API_KEY") or ""
     api_key = raw_key.strip().strip('"').strip("'")
     if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is not set")
+        raise RuntimeError("GEMINI_API_KEY is not set")
 
-    model = os.environ.get("OPENAI_VISION_MODEL", "gpt-4o")
-    client = OpenAI(api_key=api_key)
+    model = _vision_model_name()
+    client = genai.Client(api_key=api_key)
     theories = _load_ux_theories_raw()
     system_prompt = _build_system_prompt(theories)
     user_prompt = _build_user_prompt(
@@ -206,34 +214,43 @@ def analyze_screen_image(
         url_or_path=url_or_path,
     )
 
-    b64 = base64.b64encode(image_bytes).decode("ascii")
     if not image_media_type or image_media_type == "application/octet-stream":
         image_media_type = "image/png"
-    data_url = f"data:{image_media_type};base64,{b64}"
 
     try:
-        completion = client.chat.completions.create(
+        response = client.models.generate_content(
             model=model,
-            temperature=0.3,
-            max_tokens=4096,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": user_prompt},
-                        {"type": "image_url", "image_url": {"url": data_url}},
-                    ],
-                },
+            contents=[
+                user_prompt,
+                types.Part.from_bytes(
+                    data=image_bytes, mime_type=image_media_type
+                ),
             ],
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                temperature=0.3,
+                max_output_tokens=8192,
+            ),
         )
-    except AuthenticationError as e:
-        logger.warning("OpenAI AuthenticationError: %s", e)
-        raise RuntimeError(
-            "OpenAI API 키가 올바르지 않습니다. OPENAI_API_KEY를 확인하세요."
-        ) from e
+    except Exception as e:
+        logger.warning("Gemini API error: %s", e)
+        low = str(e).lower()
+        if (
+            "api key" in low
+            or "invalid" in low and "key" in low
+            or "401" in str(e)
+            or "permission" in low
+        ):
+            raise RuntimeError(
+                "Gemini API 키가 올바르지 않습니다. GEMINI_API_KEY를 확인하세요."
+            ) from e
+        raise RuntimeError(f"Gemini 요청 실패: {e}") from e
 
-    raw_text = completion.choices[0].message.content or ""
+    raw_text = (response.text or "").strip()
+    if not raw_text:
+        raise RuntimeError("Gemini 응답이 비어 있습니다.")
+
     try:
         data = _extract_json_object(raw_text)
     except ValueError as e:
@@ -250,7 +267,9 @@ def analyze_screen_image(
     try:
         return UxScreenAnalysisV1.model_validate(data)
     except Exception as e:
-        logger.warning("Validation failed for: %s", json.dumps(data, ensure_ascii=False)[:3000])
+        logger.warning(
+            "Validation failed for: %s", json.dumps(data, ensure_ascii=False)[:3000]
+        )
         raise ValueError(f"Output does not match ux schema: {e}") from e
 
 
@@ -258,7 +277,7 @@ def analyze_screen_image(
 
 app = FastAPI(
     title="UX Insight Analysis Service",
-    description="GPT-4o Vision + ux_theories.json 기반 화면 분석",
+    description="Gemini Vision + ux_theories.json 기반 화면 분석",
     version="1.0.0",
 )
 

@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { runOpenAiScreenAnalysis } from "@/lib/ux-insight/openai-screen-analysis";
+import { runGeminiScreenAnalysis } from "@/lib/ux-insight/gemini-screen-analysis";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 120;
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   const imageMediaType = image.type || "image/png";
 
   try {
-    const result = await runOpenAiScreenAnalysis({
+    const result = await runGeminiScreenAnalysis({
       imageBase64,
       imageMediaType,
       personaAge,
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const missing = msg.includes("OPENAI_API_KEY is not configured");
+    const missing = msg.includes("GEMINI_API_KEY is not configured");
     console.error("[ux-insight/analyze]", e);
     return NextResponse.json(
       { error: msg },

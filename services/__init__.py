@@ -1,1 +1,1 @@
-# UX analysis microservice (FastAPI + OpenAI Vision)
+# UX analysis microservice (FastAPI + Gemini Vision)

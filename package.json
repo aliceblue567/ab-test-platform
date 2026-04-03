@@ -29,7 +29,6 @@
     "lucide-react": "^0.460.0",
     "next": "15.3.8",
     "next-auth": "^5.0.0-beta.30",
-    "openai": "^4.104.0",
     "papaparse": "^5.5.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
