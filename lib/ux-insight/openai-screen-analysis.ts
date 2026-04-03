@@ -1,5 +1,6 @@
 import OpenAI from "openai";
-import uxTheories from "@/constants/ux_theories.json";
+import { extractJsonObjectFromModelText } from "@/lib/ux-insight/parse-model-json";
+import { buildUxTheoriesSystemPrompt } from "@/lib/ux-insight/theories-system-prompt";
 import {
   parseUxScreenAnalysisV1,
   type UxScreenAnalysisV1,
@@ -7,27 +8,6 @@ import {
 } from "@/lib/ux-insight/screen-analysis-v1";
 
 const UX_SCHEMA_VERSION = UX_SCREEN_ANALYSIS_SCHEMA_VERSION;
-
-function buildSystemPrompt(theoriesJson: string): string {
-  return `당신은 시니어 UX 컨설턴트이자 여행·디지털 제품 사용성 연구원입니다.
-아래 JSON은 팀 근거 라이브러리(닐슨 휴리스틱, Laws of UX, 행동경제 편향, 여행 심리, 확장 UX 이론)입니다. 분석 시 이 정의·analysis_criteria에 맞춰 판단하고, 근거 ID를 텍스트 안에 명시하세요.
-
-인용 가능한 ID 예시:
-- 닐슨: NH-01 … NH-10
-- Laws of UX: LUX-JAKOB, LUX-FITTS, LUX-HICK, LUX-MILLER
-- 행동편향: BE-SOCIAL-PROOF, BE-LOSS-AVERSION 등
-- 여행 심리: TP-01 … TP-08
-- 확장 UX: UXT-01 … UXT-07
-
-출력 JSON에는 스키마에 정의된 키만 사용합니다. 추가 루트 키 금지.
-usability_issues[].ux_issue_detail 또는 ux_evidence 끝에 [NH-05,TP-05]처럼 근거 ID를 붙이세요.
-
-===== BEGIN UX_THEORIES_JSON =====
-${theoriesJson}
-===== END UX_THEORIES_JSON =====
-
-응답은 순수 JSON 한 덩어리만 출력합니다. 마크다운 코드펜스·전후 설명 문장 금지.`;
-}
 
 function buildUserPrompt(params: {
   personaAge: string;
@@ -61,23 +41,6 @@ function buildUserPrompt(params: {
 근거 라이브러리의 ID를 ux_issue_detail 또는 ux_evidence 안에 (예: [NH-05,TP-05]) 형태로 인용하세요.`;
 }
 
-function extractJsonObject(text: string): Record<string, unknown> {
-  let s = text.trim();
-  const fence = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  if (fence) s = fence[1].trim();
-  try {
-    return JSON.parse(s) as Record<string, unknown>;
-  } catch {
-    /* fall through */
-  }
-  const start = s.indexOf("{");
-  const end = s.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    return JSON.parse(s.slice(start, end + 1)) as Record<string, unknown>;
-  }
-  throw new Error("No JSON object found in model output");
-}
-
 export async function runOpenAiScreenAnalysis(params: {
   imageBase64: string;
   imageMediaType: string;
@@ -96,8 +59,7 @@ export async function runOpenAiScreenAnalysis(params: {
   const model = process.env.OPENAI_VISION_MODEL ?? "gpt-4o";
   const client = new OpenAI({ apiKey });
 
-  const theoriesJson = JSON.stringify(uxTheories);
-  const systemPrompt = buildSystemPrompt(theoriesJson);
+  const systemPrompt = buildUxTheoriesSystemPrompt();
   const userPrompt = buildUserPrompt({
     personaAge: params.personaAge,
     personaProficiency: params.personaProficiency,
@@ -132,7 +94,7 @@ export async function runOpenAiScreenAnalysis(params: {
   const rawText = completion.choices[0]?.message?.content ?? "";
   let data: Record<string, unknown>;
   try {
-    data = extractJsonObject(rawText);
+    data = extractJsonObjectFromModelText(rawText);
   } catch (e) {
     console.error("[ux-insight] model output (truncated):", rawText.slice(0, 2000));
     throw new Error(
