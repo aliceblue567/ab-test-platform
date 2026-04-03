@@ -31,7 +31,7 @@ function buildUserPrompt(params: {
 
 반드시 아래 JSON 객체만 반환하세요. 키 이름과 중첩 구조를 정확히 지키세요.
 - ux_schema_version: "${UX_SCHEMA_VERSION}"
-- ux_analysis_run_id, ux_lens_id 는 null 로 두세요 (서버가 채움).
+- ux_analysis_run_id, ux_lens_id 는 생략하거나 null 로 두세요 (서버가 채움).
 - screen_id, screen_name, url_or_path 는 위 메타 값을 그대로 사용하세요.
 - visual_analysis: { "layout", "color", "font" } 각각 문자열로 전문가 톤 서술.
 - usability_issues: 배열. 각 원소는 ux_issue_summary 필수, 선택적으로 ux_issue_detail, ux_severity(high|medium|low), ux_category, ux_evidence, ux_issue_id.
