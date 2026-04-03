@@ -45,6 +45,8 @@ export async function generateUxInsightJson(params: {
   images: GeminiImagePart[];
   temperature?: number;
   maxOutputTokens?: number;
+  /** 있으면 Gemini가 이 JSON Schema에 맞춰 출력(스키마 불일치 감소) */
+  responseJsonSchema?: unknown;
 }): Promise<string> {
   const apiKey = getTrimmedGeminiApiKey();
   if (!apiKey) {
@@ -70,16 +72,27 @@ export async function generateUxInsightJson(params: {
   }
 
   try {
+    const config: {
+      systemInstruction: string;
+      responseMimeType: string;
+      temperature: number;
+      maxOutputTokens: number;
+      responseJsonSchema?: unknown;
+    } = {
+      systemInstruction: params.systemInstruction,
+      responseMimeType: "application/json",
+      temperature: params.temperature ?? 0.3,
+      maxOutputTokens: params.maxOutputTokens ?? 8192,
+    };
+    if (params.responseJsonSchema !== undefined) {
+      config.responseJsonSchema = params.responseJsonSchema;
+    }
+
     const completion = await withTimeout(
       client.models.generateContent({
         model,
         contents: [{ role: "user", parts }],
-        config: {
-          systemInstruction: params.systemInstruction,
-          responseMimeType: "application/json",
-          temperature: params.temperature ?? 0.3,
-          maxOutputTokens: params.maxOutputTokens ?? 8192,
-        },
+        config,
       }),
       TIMEOUT_MS
     );

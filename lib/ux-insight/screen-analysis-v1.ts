@@ -32,9 +32,9 @@ export const uxScreenAnalysisV1Z = z
     ux_schema_version: z.literal(UX_SCREEN_ANALYSIS_SCHEMA_VERSION),
     ux_analysis_run_id: optStr(),
     ux_lens_id: optStr(),
-    screen_id: z.string().min(1),
-    screen_name: z.string().min(1),
-    url_or_path: z.string(),
+    screen_id: z.coerce.string().min(1),
+    screen_name: z.coerce.string().min(1),
+    url_or_path: z.coerce.string(),
     visual_analysis: z.object({
       layout: z.coerce.string(),
       color: z.coerce.string(),

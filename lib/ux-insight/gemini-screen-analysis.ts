@@ -1,6 +1,8 @@
+import { coerceUxScreenAnalysisRaw } from "@/lib/ux-insight/coerce-ux-screen-analysis";
 import { extractJsonObjectFromModelText } from "@/lib/ux-insight/parse-model-json";
 import { buildUxTheoriesSystemPrompt } from "@/lib/ux-insight/theories-system-prompt";
 import { generateUxInsightJson } from "@/lib/ux-insight/gemini-vision";
+import { getUxScreenAnalysisGeminiJsonSchema } from "@/lib/ux-insight/ux-screen-analysis-response-schema";
 import {
   parseUxScreenAnalysisV1,
   type UxScreenAnalysisV1,
@@ -61,22 +63,61 @@ export async function runGeminiScreenAnalysis(params: {
     urlOrPath: params.urlOrPath,
   });
 
-  const rawText = await generateUxInsightJson({
-    systemInstruction: systemPrompt,
-    userText: userPrompt,
-    images: [
-      {
-        mimeType: params.imageMediaType,
-        dataBase64: params.imageBase64,
-      },
-    ],
-  });
+  let rawText: string;
+  try {
+    rawText = await generateUxInsightJson({
+      systemInstruction: systemPrompt,
+      userText: userPrompt,
+      images: [
+        {
+          mimeType: params.imageMediaType,
+          dataBase64: params.imageBase64,
+        },
+      ],
+      responseJsonSchema: getUxScreenAnalysisGeminiJsonSchema(),
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const m = msg.toLowerCase();
+    const schemaLikelyRejected =
+      m.includes("schema") ||
+      m.includes("invalid_argument") ||
+      m.includes("invalidargument");
+    if (schemaLikelyRejected) {
+      console.warn(
+        "[ux-insight] Gemini call with responseJsonSchema failed, retrying without schema:",
+        msg
+      );
+      rawText = await generateUxInsightJson({
+        systemInstruction: systemPrompt,
+        userText: userPrompt,
+        images: [
+          {
+            mimeType: params.imageMediaType,
+            dataBase64: params.imageBase64,
+          },
+        ],
+      });
+    } else {
+      throw e;
+    }
+  }
+
+  let extracted: Record<string, unknown>;
+  try {
+    extracted = extractJsonObjectFromModelText(rawText);
+  } catch (e) {
+    console.error("[ux-insight] Gemini output (truncated):", rawText.slice(0, 2000));
+    throw new Error(
+      e instanceof Error ? e.message : "Invalid model JSON output"
+    );
+  }
 
   let data: Record<string, unknown>;
   try {
-    data = extractJsonObjectFromModelText(rawText);
+    data = coerceUxScreenAnalysisRaw(extracted);
   } catch (e) {
-    console.error("[ux-insight] Gemini output (truncated):", rawText.slice(0, 2000));
+    console.error("[ux-insight] coerce failed, raw keys:", Object.keys(extracted));
     throw new Error(
       e instanceof Error ? e.message : "Invalid model JSON output"
     );
@@ -91,8 +132,18 @@ export async function runGeminiScreenAnalysis(params: {
 
   const parsed = parseUxScreenAnalysisV1(data);
   if (!parsed.ok) {
-    console.error("[ux-insight] zod:", parsed.error.flatten());
-    throw new Error("Model output does not match ux screen analysis schema");
+    const flat = parsed.error.flatten();
+    console.error("[ux-insight] zod:", flat);
+    const fieldKeys = Object.keys(flat.fieldErrors).filter(
+      (k) => (flat.fieldErrors[k]?.length ?? 0) > 0
+    );
+    const hint =
+      fieldKeys.length > 0
+        ? ` (필드: ${fieldKeys.slice(0, 6).join(", ")})`
+        : "";
+    throw new Error(
+      `AI 응답 JSON이 규격과 맞지 않습니다.${hint} 잠시 후 다시 시도하거나 이미지를 줄여 보세요.`
+    );
   }
   return parsed.data;
 }
