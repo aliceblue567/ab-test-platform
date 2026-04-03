@@ -34,8 +34,10 @@ function LoginForm() {
     if (!form) return;
     const { email: eVal, password: pVal } = getFormValues(form);
     try {
-      const res = await fetch("/api/debug/auth-diagnose", {
+      // 프로덕션에서는 /api/debug/auth-diagnose 가 비활성(404)이므로 /api/login 의 401 debug 로 진단
+      const res = await fetch("/api/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           email: eVal,
@@ -44,10 +46,20 @@ function LoginForm() {
           callbackUrl,
         }).toString(),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       setDiagnose(
         JSON.stringify(
-          { ...data, clientSent: { emailLen: eVal.length, passwordLen: pVal.length } },
+          {
+            httpStatus: res.status,
+            ...data,
+            clientSent: { emailLen: eVal.length, passwordLen: pVal.length },
+            hint:
+              res.status === 401 && data?.debug && !data.debug.envEmailSet
+                ? "Vercel 환경 변수 AUTH_ADMIN_EMAIL 이 비어 있습니다."
+                : res.status === 401 && data?.debug && !data.debug.envPasswordSet
+                  ? "Vercel 환경 변수 AUTH_ADMIN_PASSWORD 가 비어 있습니다."
+                  : undefined,
+          },
           null,
           2
         )
@@ -67,13 +79,10 @@ function LoginForm() {
     const form = e.currentTarget;
     const { email: eVal, password: pVal } = getFormValues(form);
     try {
-      const res = await fetch("/api/debug/auth-diagnose", {
+      const res = await fetch("/api/login", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "X-Do-Login": "true",
-        },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           email: eVal,
           password: pVal,

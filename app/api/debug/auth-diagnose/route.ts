@@ -57,7 +57,9 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const isSecure = req.nextUrl.protocol === "https:";
+      const isSecure =
+        req.nextUrl.protocol === "https:" ||
+        req.headers.get("x-forwarded-proto") === "https";
       const cookieName = isSecure ? "__Secure-authjs.session-token" : "authjs.session-token";
       const secret = process.env.AUTH_SECRET || "dev-secret-replace-in-production";
       const token = await encode({
