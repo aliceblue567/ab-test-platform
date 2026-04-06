@@ -181,12 +181,29 @@ export function FlowWorkbench() {
         body: fd,
         credentials: "include",
       });
-      const data = await res.json().catch(() => ({}));
+      let data: unknown = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
       if (!res.ok) {
-        toast.error(typeof data.error === "string" ? data.error : "분석 실패");
+        const err =
+          typeof data === "object" &&
+          data !== null &&
+          "error" in data &&
+          typeof (data as { error: unknown }).error === "string"
+            ? (data as { error: string }).error
+            : typeof data === "object" &&
+                data !== null &&
+                "message" in data &&
+                typeof (data as { message: unknown }).message === "string"
+              ? (data as { message: string }).message
+              : `분석 실패 (HTTP ${res.status})`;
+        toast.error(err);
         return;
       }
-      setReport(data as UxFlowAnalysisV1);
+      setReport(data as unknown as UxFlowAnalysisV1);
       toast.success("플로우 분석이 완료되었습니다.");
     } catch {
       toast.error("네트워크 오류");

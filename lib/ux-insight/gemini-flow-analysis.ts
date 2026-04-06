@@ -1,3 +1,4 @@
+import { coerceUxFlowRaw } from "@/lib/ux-insight/coerce-ux-flow";
 import { extractJsonObjectFromModelText } from "@/lib/ux-insight/parse-model-json";
 import { buildFlowPsychologyFrameworkPrompt } from "@/lib/ux-insight/flow-psychology-prompt";
 import { buildUxTheoriesSystemPrompt } from "@/lib/ux-insight/theories-system-prompt";
@@ -142,7 +143,7 @@ export async function runGeminiFlowAnalysis(params: {
         userText: prepPrompt,
         images,
         temperature: 0.2,
-        maxOutputTokens: 4096,
+        maxOutputTokens: 8192,
       });
       const prepObj = extractJsonObjectFromModelText(prepRaw);
       const finalizeUser = `${buildFinalJsonInstructions({ stepCount: commonUser.stepCount })}
@@ -155,7 +156,7 @@ ${JSON.stringify(prepObj)}`;
         userText: finalizeUser,
         images: [],
         temperature: 0.2,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 16384,
       });
     } catch (e) {
       console.warn("[ux-flow] two-step path failed, one-shot fallback:", e);
@@ -164,7 +165,7 @@ ${JSON.stringify(prepObj)}`;
         userText: buildUserPrompt(commonUser),
         images,
         temperature: 0.25,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 16384,
       });
     }
   } else {
@@ -173,15 +174,25 @@ ${JSON.stringify(prepObj)}`;
       userText: buildUserPrompt(commonUser),
       images,
       temperature: 0.25,
-      maxOutputTokens: 8192,
+      maxOutputTokens: 16384,
     });
+  }
+
+  let extracted: Record<string, unknown>;
+  try {
+    extracted = extractJsonObjectFromModelText(rawText);
+  } catch (e) {
+    console.error("[ux-flow] model output (truncated):", rawText.slice(0, 2000));
+    throw new Error(
+      e instanceof Error ? e.message : "Invalid model JSON output"
+    );
   }
 
   let data: Record<string, unknown>;
   try {
-    data = extractJsonObjectFromModelText(rawText);
+    data = coerceUxFlowRaw(extracted, params.images.length);
   } catch (e) {
-    console.error("[ux-flow] model output (truncated):", rawText.slice(0, 2000));
+    console.error("[ux-flow] coerce failed keys:", Object.keys(extracted));
     throw new Error(
       e instanceof Error ? e.message : "Invalid model JSON output"
     );
