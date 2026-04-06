@@ -273,12 +273,206 @@ def analyze_screen_image(
         raise ValueError(f"Output does not match ux schema: {e}") from e
 
 
+# --- ux-flow-analysis v1 (멀티 스텝) ---
+
+UX_FLOW_SCHEMA_VERSION = "1.0.0"
+
+_FLOW_PSYCHOLOGY_BLOCK = """
+## 멀티 스텝 프레임워크
+Contextual continuity, Cognitive load transition, Peak-End, Zeigarnik, Knowledge in the World.
+전환마다 구체 UI 근거와 이론 ID를 넣으세요.
+"""
+
+
+class UxFlowPsychDimensions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ux_expectation_gap: int = Field(ge=1, le=5)
+    ux_cognitive_spike: int = Field(ge=1, le=5)
+    ux_emotional_friction: int = Field(ge=1, le=5)
+
+
+class UxFlowStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ux_step_index: int = Field(ge=0)
+    ux_step_label: str = Field(min_length=1)
+    ux_one_line_summary: str = Field(min_length=1)
+    ux_is_expert_edited: bool | None = None
+
+
+class UxFlowTransition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ux_from_step: int = Field(ge=0)
+    ux_to_step: int = Field(ge=0)
+    ux_friction_summary: str = Field(min_length=1)
+    ux_friction_score: int = Field(ge=1, le=5)
+    ux_psychological_dimensions: UxFlowPsychDimensions
+    ux_theory_note: str | None = None
+    ux_is_expert_edited: bool | None = None
+
+
+class UxFlowMetrics(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ux_seamlessness_index: float = Field(ge=0, le=100)
+    ux_worst_transition_to_step: int | None = None
+    ux_executive_summary: str = Field(min_length=1)
+    ux_is_expert_edited: bool | None = None
+
+
+class UxFlowHotspot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ux_step_index: int = Field(ge=0)
+    x_pct: float = Field(ge=0, le=100)
+    y_pct: float = Field(ge=0, le=100)
+    ux_note: str = Field(min_length=1)
+    ux_related_transition_from: int | None = None
+    ux_related_transition_to: int | None = None
+
+
+class UxFlowAnalysisV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ux_flow_schema_version: Literal["1.0.0"] = "1.0.0"
+    ux_analysis_run_id: str | None = None
+    ux_project_id: str | None = None
+    ux_flow_title: str = Field(min_length=1)
+    ux_steps: list[UxFlowStep]
+    ux_transitions: list[UxFlowTransition]
+    ux_flow_metrics: UxFlowMetrics
+    ux_flow_hotspots: list[UxFlowHotspot] | None = None
+
+
+def _sanitize_flow_persona(s: str) -> str:
+    s = re.sub(r"\b[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}\b", "[redacted]", s)
+    return s.strip()
+
+
+def _build_flow_system_prompt(theories_json: str) -> str:
+    return _build_system_prompt(theories_json) + "\n\n" + _FLOW_PSYCHOLOGY_BLOCK
+
+
+def _build_flow_user_prompt(
+    *,
+    step_count: int,
+    persona_age: str,
+    persona_proficiency: str,
+    persona_goal: str,
+    flow_title: str,
+) -> str:
+    last = step_count - 1
+    return f"""첨부 이미지는 시간 순서대로 한 유저 플로우입니다. 0번이 첫 화면, {last}번이 마지막.
+
+[페르소나]
+- 연령: {persona_age}
+- 디지털 숙련도: {persona_proficiency}
+- 목적: {persona_goal}
+
+[플로우 제목]
+{flow_title}
+
+반드시 JSON만 출력:
+- ux_flow_schema_version: "{UX_FLOW_SCHEMA_VERSION}"
+- ux_analysis_run_id: null
+- ux_project_id: null
+- ux_flow_title
+- ux_steps: 길이 {step_count}
+- ux_transitions: 길이 {step_count - 1}
+- ux_flow_metrics: ux_seamlessness_index(0~높을수록 매끄러움), ux_worst_transition_to_step, ux_executive_summary
+- ux_flow_hotspots: 선택, 각 원소 ux_step_index, x_pct, y_pct(0~100), ux_note
+
+이론 ID는 [NH-01,LUX-HICK] 형태로 넣을 수 있습니다."""
+
+
+def analyze_flow_images(
+    *,
+    image_parts: list[tuple[bytes, str]],
+    persona_age: str,
+    persona_proficiency: str,
+    persona_goal: str,
+    flow_title: str,
+    project_id: str | None = None,
+) -> UxFlowAnalysisV1:
+    if len(image_parts) < 2 or len(image_parts) > 8:
+        raise ValueError("flow requires 2–8 images")
+
+    raw_key = os.environ.get("GEMINI_API_KEY") or ""
+    api_key = raw_key.strip().strip('"').strip("'")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is not set")
+
+    model = _vision_model_name()
+    client = genai.Client(api_key=api_key)
+    theories = _load_ux_theories_raw()
+    system_prompt = _build_flow_system_prompt(theories)
+    persona_age = _sanitize_flow_persona(persona_age)
+    persona_proficiency = _sanitize_flow_persona(persona_proficiency)
+    persona_goal = _sanitize_flow_persona(persona_goal)
+    flow_title = _sanitize_flow_persona(flow_title) or "유저 플로우"
+    user_prompt = _build_flow_user_prompt(
+        step_count=len(image_parts),
+        persona_age=persona_age,
+        persona_proficiency=persona_proficiency,
+        persona_goal=persona_goal,
+        flow_title=flow_title,
+    )
+
+    contents: list[Any] = [user_prompt]
+    for raw_img, media_type in image_parts:
+        if not media_type or media_type == "application/octet-stream":
+            media_type = "image/png"
+        contents.append(
+            types.Part.from_bytes(data=raw_img, mime_type=media_type)
+        )
+
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                temperature=0.25,
+                max_output_tokens=8192,
+            ),
+        )
+    except Exception as e:
+        logger.warning("Gemini flow error: %s", e)
+        raise RuntimeError(f"Gemini 요청 실패: {e}") from e
+
+    raw_text = (response.text or "").strip()
+    if not raw_text:
+        raise RuntimeError("Gemini 응답이 비어 있습니다.")
+
+    try:
+        data = _extract_json_object(raw_text)
+    except ValueError as e:
+        logger.warning("Flow model output (truncated): %s", raw_text[:2000])
+        raise RuntimeError(f"Invalid model JSON: {e}") from e
+
+    data["ux_analysis_run_id"] = data.get("ux_analysis_run_id") or str(uuid.uuid4())
+    data["ux_flow_schema_version"] = UX_FLOW_SCHEMA_VERSION
+    if project_id and str(project_id).strip():
+        data["ux_project_id"] = str(project_id).strip()
+
+    try:
+        return UxFlowAnalysisV1.model_validate(data)
+    except Exception as e:
+        logger.warning(
+            "Flow validation failed: %s", json.dumps(data, ensure_ascii=False)[:3000]
+        )
+        raise ValueError(f"Output does not match ux flow schema: {e}") from e
+
+
 # --- FastAPI ---
 
 app = FastAPI(
     title="UX Insight Analysis Service",
-    description="Gemini Vision + ux_theories.json 기반 화면 분석",
-    version="1.0.0",
+    description="Gemini Vision — 단일 화면(/analyze) 및 플로우(/analyze-flow)",
+    version="1.1.0",
 )
 
 
@@ -332,3 +526,49 @@ async def analyze(
         raise HTTPException(status_code=422, detail=str(e)) from e
 
     return result
+
+
+@app.post("/analyze-flow", response_model=UxFlowAnalysisV1)
+async def analyze_flow(
+    images: list[UploadFile] = File(
+        ..., description="순서대로 정렬된 화면 이미지 2~8장"
+    ),
+    persona_age: str = Form(...),
+    persona_proficiency: str = Form(...),
+    persona_goal: str = Form(...),
+    flow_title: str | None = Form(None),
+    project_id: str | None = Form(None),
+) -> UxFlowAnalysisV1:
+    """멀티 스텝 플로우 마찰 분석 (Node /api/ux-insight/analyze-flow 와 동일 규격)."""
+    try:
+        _load_ux_theories_raw()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    if len(images) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 images required")
+    if len(images) > 8:
+        raise HTTPException(status_code=400, detail="Maximum 8 images")
+
+    parts: list[tuple[bytes, str]] = []
+    for uf in images:
+        raw = await uf.read()
+        if not raw:
+            raise HTTPException(status_code=400, detail="Empty image file")
+        parts.append((raw, uf.content_type or "image/png"))
+
+    title = (flow_title or "").strip() or "유저 플로우"
+
+    try:
+        return analyze_flow_images(
+            image_parts=parts,
+            persona_age=persona_age,
+            persona_proficiency=persona_proficiency,
+            persona_goal=persona_goal,
+            flow_title=title,
+            project_id=(project_id or "").strip() or None,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e

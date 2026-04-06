@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { runGeminiFlowAnalysis } from "@/lib/ux-insight/gemini-flow-analysis";
+import { sanitizePersonaTextForApi } from "@/lib/ux-insight/sanitize-prompt";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 120;
@@ -31,11 +32,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const personaAge = String(formData.get("persona_age") ?? "").trim();
-  const personaProficiency = String(
-    formData.get("persona_proficiency") ?? ""
-  ).trim();
-  const personaGoal = String(formData.get("persona_goal") ?? "").trim();
+  const personaAge = sanitizePersonaTextForApi(
+    String(formData.get("persona_age") ?? "").trim()
+  );
+  const personaProficiency = sanitizePersonaTextForApi(
+    String(formData.get("persona_proficiency") ?? "").trim()
+  );
+  const personaGoal = sanitizePersonaTextForApi(
+    String(formData.get("persona_goal") ?? "").trim()
+  );
   if (!personaAge || !personaProficiency || !personaGoal) {
     return NextResponse.json(
       { error: "페르소나(연령·숙련도·목적)를 모두 입력해 주세요." },
@@ -44,7 +49,10 @@ export async function POST(req: Request) {
   }
 
   const flowTitle =
-    String(formData.get("flow_title") ?? "").trim() || "유저 플로우";
+    sanitizePersonaTextForApi(
+      String(formData.get("flow_title") ?? "").trim()
+    ) || "유저 플로우";
+  const projectId = String(formData.get("project_id") ?? "").trim();
 
   const images: { base64: string; mediaType: string }[] = [];
   for (const file of files) {
@@ -68,6 +76,7 @@ export async function POST(req: Request) {
       personaProficiency,
       personaGoal,
       flowTitle,
+      uxProjectId: projectId || null,
     });
     return NextResponse.json(result);
   } catch (e) {
