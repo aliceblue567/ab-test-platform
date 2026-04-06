@@ -27,6 +27,7 @@ import {
 import {
   BENCHMARK_DATA_PROVENANCE,
   BENCHMARK_DIMENSION_HINTS,
+  deriveCompetitorApplyIdeas,
   deriveDimensionGaps,
   deriveImprovementTasks,
   deriveSwotStrategyBlocks,
@@ -35,6 +36,10 @@ import {
   type DimensionGapRow,
   type EnrichedFeatureRow,
 } from "@/lib/ux-insight/benchmark-report-derive";
+import {
+  BeforeAfterCompareCard,
+  CompetitorApplyIdeasSection,
+} from "@/components/insight/benchmark-apply-from-competitor";
 import {
   Card,
   CardContent,
@@ -177,6 +182,10 @@ export function BenchmarkResultPanel({
   const worstKey = useMemo(() => largestGapKey(gaps), [gaps]);
   const tasks = useMemo(
     () => deriveImprovementTasks(report, gaps, selfIndex),
+    [report, gaps, selfIndex]
+  );
+  const applyIdeas = useMemo(
+    () => deriveCompetitorApplyIdeas(report, gaps, selfIndex),
     [report, gaps, selfIndex]
   );
   const enriched = useMemo(
@@ -656,6 +665,8 @@ export function BenchmarkResultPanel({
         </Card>
       )}
 
+      <CompetitorApplyIdeasSection ideas={applyIdeas} />
+
       {/* 5. 자사 우선 개선 과제 */}
       <Card className="border-orange-500/20">
         <CardHeader className="pb-2">
@@ -713,6 +724,32 @@ export function BenchmarkResultPanel({
                   {t.kpiHint}
                 </li>
               </ul>
+              {t.dimensionKey &&
+                (() => {
+                  const m = applyIdeas.find((a) => a.gapKey === t.dimensionKey);
+                  if (!m) return null;
+                  return (
+                    <details className="mt-2 rounded-md border border-border/60 bg-muted/10">
+                      <summary className="cursor-pointer px-2 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40">
+                        이 과제의 개선 전·후(UI 관점) 보기
+                      </summary>
+                      <div className="border-t border-border/60 p-2">
+                        <BeforeAfterCompareCard
+                          ideaTitle={t.title}
+                          priority={m.priority}
+                          relatedScreen={m.relatedScreen}
+                          kpis={m.relatedKpis}
+                          beforeAfter={m.beforeAfter}
+                          difficulty={m.difficulty}
+                          estimatedResource={m.estimatedResource}
+                          quickWin={m.quickWin}
+                          highKpiImpact={m.highKpiImpact}
+                          devRisk={m.devRisk}
+                        />
+                      </div>
+                    </details>
+                  );
+                })()}
             </div>
           ))}
         </CardContent>
