@@ -72,6 +72,18 @@ export default auth(async (req) => {
       );
       return NextResponse.redirect(login);
     }
+
+    const role = (req.auth?.user as { role?: string } | undefined)?.role;
+    if (
+      req.auth &&
+      (role === "member" || role === "viewer") &&
+      pathname.startsWith("/admin") &&
+      !matchesPublic(pathname, NEXTAUTH_PUBLIC)
+    ) {
+      return NextResponse.redirect(
+        new URL("/workspace/experiments", req.nextUrl.origin)
+      );
+    }
   }
 
   return NextResponse.next();
@@ -79,5 +91,11 @@ export default auth(async (req) => {
 
 export const config = {
   // `/insight` 단독 경로도 반드시 포함 (일부 matcher에서 `:path*`만으로 루트가 빠질 수 있음)
-  matcher: ["/admin/:path*", "/insight", "/insight/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/insight",
+    "/insight/:path*",
+    "/workspace",
+    "/workspace/:path*",
+  ],
 };

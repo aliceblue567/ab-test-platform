@@ -4,6 +4,7 @@
  */
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { guardAdmin } from "@/lib/require-admin";
 import { getSupabaseServiceClient, fetchAllGuidelines } from "@/lib/ux-writing/guidelines";
 import {
   createGuidelineSchema,
@@ -33,12 +34,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json(
-      { error: "Unauthorized", code: "UNAUTHORIZED" },
-      { status: 401 }
-    );
-  }
+  const denied = guardAdmin(session);
+  if (denied) return denied;
 
   let body: unknown;
   try {

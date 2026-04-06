@@ -8,20 +8,26 @@ import {
   FlaskConical,
   LayoutList,
   BookOpen,
-  KeyRound,
-  LogIn,
   Sparkles,
-  Users,
+  FolderOpen,
+  ExternalLink,
 } from "lucide-react";
 
 const experimentItems = [
-  { href: "/admin/experiments", label: "실험 목록", icon: LayoutList },
-  { href: "/admin/planner", label: "플래너", icon: FlaskConical },
+  { href: "/workspace/experiments", label: "실험 목록", icon: LayoutList },
+  { href: "/workspace/planner", label: "플래너", icon: FlaskConical },
 ] as const;
 
 const writingItems = [
-  { href: "/admin/guidelines", label: "UX 가이드", icon: BookOpen },
-  { href: "/admin/api-keys", label: "API 키", icon: KeyRound },
+  { href: "/workspace/guidelines", label: "UX 가이드", icon: BookOpen },
+] as const;
+
+const insightItems = [
+  {
+    href: "/workspace/insight-saved",
+    label: "인사이트 저장함",
+    icon: FolderOpen,
+  },
 ] as const;
 
 function NavLink({
@@ -35,7 +41,7 @@ function NavLink({
 }) {
   const pathname = usePathname();
   const isActive =
-    pathname === href || (href !== "/admin" && pathname.startsWith(href));
+    pathname === href || (href !== "/workspace" && pathname.startsWith(href));
 
   return (
     <Link
@@ -53,29 +59,30 @@ function NavLink({
   );
 }
 
-export function AdminNav() {
+export function WorkspaceNav() {
   const pathname = usePathname();
-  const insightActive = pathname === "/insight" || pathname.startsWith("/insight/");
+  const insightActive = pathname === "/insight" || pathname?.startsWith("/insight/");
 
   return (
     <nav className="flex flex-1 flex-col gap-1">
       <p className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        A/B 테스트
+        내 작업 · A/B 테스트
       </p>
       {experimentItems.map((item) => (
         <NavLink key={item.href} {...item} />
       ))}
-
       <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         UX 라이팅
       </p>
       {writingItems.map((item) => (
         <NavLink key={item.href} {...item} />
       ))}
-
       <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        별도 제품
+        인사이트
       </p>
+      {insightItems.map((item) => (
+        <NavLink key={item.href} {...item} />
+      ))}
       <Link
         href="/insight"
         className={cn(
@@ -86,37 +93,9 @@ export function AdminNav() {
         )}
       >
         <Sparkles className="h-5 w-5 shrink-0" />
-        UX 인사이트 랩
+        인사이트 Lab
+        <ExternalLink className="h-3.5 w-3.5 ml-auto opacity-60" />
       </Link>
-      <p className="px-3 pt-1 text-[11px] leading-snug text-muted-foreground">
-        URL <code className="rounded bg-muted px-0.5">/insight</code> · DB{" "}
-        <code className="rounded bg-muted px-0.5">ux_*</code> · API{" "}
-        <code className="rounded bg-muted px-0.5">/api/ux-insight</code>
-      </p>
-
-      <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        팀
-      </p>
-      <Link
-        href="/workspace/experiments"
-        className={cn(
-          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-          "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-        )}
-      >
-        <Users className="h-5 w-5 shrink-0" />
-        팀 워크스페이스 (미리보기)
-      </Link>
-
-      <div className="mt-auto border-t border-border pt-4">
-        <Link
-          href="/admin/login"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <LogIn className="h-5 w-5 shrink-0" />
-          로그인
-        </Link>
-      </div>
     </nav>
   );
 }

@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { experimentsListWhere } from "@/lib/experiment-access";
 import { z } from "zod";
 import { createExperimentSchema } from "@/src/lib/validation";
 
@@ -17,7 +18,9 @@ export async function GET() {
     );
   }
   try {
+    const scope = experimentsListWhere(session);
     const list = await prisma.experiment.findMany({
+      where: scope ?? {},
       orderBy: { updatedAt: "desc" },
       include: { variants: { select: { id: true, key: true, name: true } } },
     });
@@ -53,6 +56,7 @@ export async function POST(req: Request) {
       );
     }
 
+    const userId = session.user.id as string;
     const experiment = await prisma.experiment.create({
       data: {
         key: data.key,
@@ -61,6 +65,7 @@ export async function POST(req: Request) {
         primaryGoalKey: data.primaryGoalKey ?? null,
         primaryGoalCustom: data.primaryGoalCustom ?? null,
         trafficAllocation: data.trafficAllocation ?? 100,
+        ownerId: userId,
         variants: {
           create: data.variants.map((v) => ({
             key: v.key,

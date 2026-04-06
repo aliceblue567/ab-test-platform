@@ -14,6 +14,7 @@ datasource db {
 
 enum UserRole {
   admin
+  member
   viewer
 }
 
@@ -44,10 +45,34 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts Account[]
-  sessions Session[]
+  accounts          Account[]
+  sessions          Session[]
+  ownedExperiments  Experiment[]      @relation("ExperimentOwner")
+  insightArtifacts  InsightArtifact[]
 
   @@map("users")
+}
+
+enum InsightArtifactKind {
+  benchmark
+  flow
+  screen
+}
+
+model InsightArtifact {
+  id        String              @id @default(cuid())
+  userId    String              @map("user_id")
+  kind      InsightArtifactKind
+  title     String
+  payload   Json
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@index([userId, updatedAt])
+  @@map("insight_artifacts")
 }
 
 model Account {
@@ -97,9 +122,11 @@ model Experiment {
   trafficAllocation Int              @default(100)
   startAt           DateTime?
   endAt             DateTime?
+  ownerId           String?          @map("owner_id")
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
+  owner           User?            @relation("ExperimentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   variants        Variant[]
   assignments     Assignment[]
   eventLogs       EventLog[]
@@ -107,6 +134,7 @@ model Experiment {
   auditLogs       AuditLog[]
 
   @@index([status, key])
+  @@index([ownerId])
   @@map("experiments")
 }
 

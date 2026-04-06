@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { canAccessExperimentRow } from "@/lib/experiment-access";
 import { z } from "zod";
 import { getReportSummary } from "@/src/lib/stats";
 
@@ -32,10 +33,23 @@ export async function GET(
 
     const experiment = await prisma.experiment.findUnique({
       where: { id },
-      select: { id: true, key: true, name: true, status: true },
+      select: {
+        id: true,
+        key: true,
+        name: true,
+        status: true,
+        ownerId: true,
+      },
     });
 
     if (!experiment) {
+      return NextResponse.json(
+        { error: "Experiment not found", code: "NOT_FOUND" },
+        { status: 404 }
+      );
+    }
+
+    if (!canAccessExperimentRow(session, experiment)) {
       return NextResponse.json(
         { error: "Experiment not found", code: "NOT_FOUND" },
         { status: 404 }

@@ -18,6 +18,7 @@ import {
   editExperimentFormSchema,
   type EditExperimentFormValues,
 } from "./experiment-edit-form-schema";
+import { useWorkspaceBasePath } from "@/components/workspace/workspace-base-context";
 
 const VALID_GOAL_KEYS = [
   "cta_click_rate",
@@ -47,6 +48,7 @@ type Experiment = {
 };
 
 export function ExperimentEditForm({ experimentId }: { experimentId: string }) {
+  const base = useWorkspaceBasePath();
   const router = useRouter();
   const [experiment, setExperiment] = useState<Experiment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -235,7 +237,7 @@ export function ExperimentEditForm({ experimentId }: { experimentId: string }) {
             취소
           </Button>
           <Button type="button" variant="outline" asChild>
-            <a href={`/admin/report/${experimentId}`}>리포트 보기</a>
+            <a href={`${base}/report/${experimentId}`}>리포트 보기</a>
           </Button>
         </div>
       </form>

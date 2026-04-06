@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { canAccessExperimentRow } from "@/lib/experiment-access";
 import { z } from "zod";
 import { variantPayloadSchema } from "@/src/lib/validation";
 
@@ -41,8 +42,18 @@ export async function PATCH(
       variantPayloadSchema.parse(data.payload);
     }
 
-    const variant = await prisma.variant.findUnique({ where: { id } });
+    const variant = await prisma.variant.findUnique({
+      where: { id },
+      include: { experiment: true },
+    });
     if (!variant) {
+      return NextResponse.json(
+        { error: "Variant not found", code: "NOT_FOUND" },
+        { status: 404 }
+      );
+    }
+
+    if (!canAccessExperimentRow(session, variant.experiment)) {
       return NextResponse.json(
         { error: "Variant not found", code: "NOT_FOUND" },
         { status: 404 }

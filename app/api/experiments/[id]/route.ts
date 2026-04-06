@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { canAccessExperimentRow } from "@/lib/experiment-access";
 import { z } from "zod";
 import { updateExperimentSchema } from "@/src/lib/validation";
 
@@ -12,6 +13,14 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: "Unauthorized", code: "UNAUTHORIZED" },
+      { status: 401 }
+    );
+  }
+
   try {
     const { id } = await params;
 
@@ -28,6 +37,13 @@ export async function GET(
     });
 
     if (!experiment) {
+      return NextResponse.json(
+        { error: "Experiment not found", code: "NOT_FOUND" },
+        { status: 404 }
+      );
+    }
+
+    if (!canAccessExperimentRow(session, experiment)) {
       return NextResponse.json(
         { error: "Experiment not found", code: "NOT_FOUND" },
         { status: 404 }
@@ -73,6 +89,13 @@ export async function PATCH(
     });
 
     if (!experiment) {
+      return NextResponse.json(
+        { error: "Experiment not found", code: "NOT_FOUND" },
+        { status: 404 }
+      );
+    }
+
+    if (!canAccessExperimentRow(session, experiment)) {
       return NextResponse.json(
         { error: "Experiment not found", code: "NOT_FOUND" },
         { status: 404 }

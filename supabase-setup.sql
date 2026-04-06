@@ -141,6 +141,12 @@ CREATE TABLE IF NOT EXISTS "audit_logs" (
     CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
 );
 
+-- Prisma Credentials 로그인 (기존 DB에 컬럼 없을 때 추가)
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "password_hash" TEXT;
+
+-- UserRole 확장 (팀원 role)
+ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'member';
+
 -- Indexes (이미 있으면 무시)
 CREATE UNIQUE INDEX IF NOT EXISTS "users_email_key" ON "users"("email");
 CREATE UNIQUE INDEX IF NOT EXISTS "Account_provider_providerAccountId_key" ON "Account"("provider", "providerAccountId");

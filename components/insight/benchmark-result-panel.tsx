@@ -2,12 +2,15 @@
 
 import { useMemo, useState } from "react";
 import {
+  BookmarkPlus,
   Building2,
   Sparkles,
   Table2,
   Target,
   TrendingUp,
 } from "lucide-react";
+import { toast } from "sonner";
+import Link from "next/link";
 import {
   Legend,
   PolarAngleAxis,
@@ -167,6 +170,7 @@ export function BenchmarkResultPanel({
   selfIndex?: number;
 }) {
   const [selectedDim, setSelectedDim] = useState<string | null>(null);
+  const [saveBusy, setSaveBusy] = useState(false);
   const [matrixFilter, setMatrixFilter] = useState({
     onlyMissing: false,
     highImportance: false,
@@ -220,12 +224,63 @@ export function BenchmarkResultPanel({
 
   const focusKey = selectedDim ?? worstKey;
 
+  async function saveBenchmarkToWorkspace() {
+    setSaveBusy(true);
+    try {
+      const label =
+        selfVariant?.ux_label?.trim() ||
+        report.ux_variants[0]?.ux_label ||
+        "벤치마크 분석";
+      const title = `${label} · ${new Intl.DateTimeFormat("ko-KR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date())}`;
+      const res = await fetch("/api/ux-insight/artifacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "benchmark",
+          title: title.slice(0, 256),
+          payload: JSON.parse(JSON.stringify(report)) as Record<string, unknown>,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(
+          typeof j.message === "string" ? j.message : "저장에 실패했습니다."
+        );
+      }
+      toast.success("저장했습니다. 팀 워크스페이스의 인사이트 저장함에서 확인할 수 있어요.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "저장에 실패했습니다.");
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className="text-[10px] font-normal">
           {BENCHMARK_DATA_PROVENANCE}
         </Badge>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="h-7 gap-1 text-xs"
+          disabled={saveBusy}
+          onClick={() => void saveBenchmarkToWorkspace()}
+        >
+          <BookmarkPlus className="h-3.5 w-3.5" />
+          {saveBusy ? "저장 중…" : "내 저장함에 저장"}
+        </Button>
+        <Link
+          href="/workspace/insight-saved"
+          className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+        >
+          저장함 열기
+        </Link>
       </div>
 
       {/* 2. 핵심 차이 요약 */}

@@ -40,7 +40,7 @@ async function main() {
           email: emailLower,
           name,
           passwordHash,
-          role: "admin",
+          role: "member",
         },
       });
 

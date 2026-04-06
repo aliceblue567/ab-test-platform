@@ -4,6 +4,7 @@
  */
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { guardAdmin } from "@/lib/require-admin";
 import { getSupabaseServiceClient } from "@/lib/ux-writing/guidelines";
 import {
   emptyToNull,
@@ -15,12 +16,8 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, context: RouteContext) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json(
-      { error: "Unauthorized", code: "UNAUTHORIZED" },
-      { status: 401 }
-    );
-  }
+  const denied = guardAdmin(session);
+  if (denied) return denied;
 
   const { id } = await context.params;
   if (!id) {
@@ -89,12 +86,8 @@ export async function PATCH(req: Request, context: RouteContext) {
 
 export async function DELETE(_req: Request, context: RouteContext) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json(
-      { error: "Unauthorized", code: "UNAUTHORIZED" },
-      { status: 401 }
-    );
-  }
+  const denied = guardAdmin(session);
+  if (denied) return denied;
 
   const { id } = await context.params;
   if (!id) {

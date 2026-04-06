@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/admin/experiments";
+  const callbackUrl =
+    searchParams.get("callbackUrl") ?? "/workspace/experiments";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       email,
       name,
       passwordHash,
-      role: "admin",
+      role: "member",
     },
   });
 

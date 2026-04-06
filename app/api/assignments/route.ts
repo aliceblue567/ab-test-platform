@@ -5,6 +5,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { isAdminSession } from "@/lib/auth-role";
+import { canAccessExperimentRow } from "@/lib/experiment-access";
 import { z } from "zod";
 import { assignmentQuerySchema } from "@/src/lib/validation";
 
@@ -26,10 +28,38 @@ export async function GET(req: Request) {
       offset: searchParams.get("offset") ?? "0",
     });
 
-    const where = {
+    let where: {
+      experimentId?: string | { in: string[] };
+      userKey?: string;
+    } = {
       ...(query.experimentId && { experimentId: query.experimentId }),
       ...(query.userKey && { userKey: query.userKey }),
     };
+
+    if (!isAdminSession(session)) {
+      const uid = session.user.id as string;
+      const owned = await prisma.experiment.findMany({
+        where: { ownerId: uid },
+        select: { id: true },
+      });
+      const ids = owned.map((e) => e.id);
+      if (query.experimentId) {
+        const exp = await prisma.experiment.findUnique({
+          where: { id: query.experimentId },
+        });
+        if (!canAccessExperimentRow(session, exp)) {
+          return NextResponse.json(
+            { data: [], meta: { total: 0, limit: query.limit, offset: query.offset } },
+            { status: 200 }
+          );
+        }
+      } else {
+        where = {
+          ...where,
+          experimentId: { in: ids.length > 0 ? ids : ["__no_experiments__"] },
+        };
+      }
+    }
 
     const [assignments, total] = await Promise.all([
       prisma.assignment.findMany({
