@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isSignupAvailable, verifySignupInvite } from "@/lib/signup-gate";
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
 
   const existing = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
+    select: { id: true },
   });
   if (existing) {
     return NextResponse.json(
@@ -85,14 +87,27 @@ export async function POST(req: NextRequest) {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  await prisma.user.create({
-    data: {
-      email,
-      name,
-      passwordHash,
-      role: "member",
-    },
-  });
+  try {
+    await prisma.user.create({
+      data: {
+        email,
+        name,
+        passwordHash,
+        role: "member",
+      },
+      select: { id: true },
+    });
+  } catch (e) {
+    const msg =
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2022"
+        ? "DB에 password_hash 컬럼이 없습니다. Supabase SQL로 컬럼을 추가한 뒤 다시 시도해 주세요."
+        : "가입 처리 중 오류가 발생했습니다.";
+    return NextResponse.json(
+      { error: "DB_SCHEMA", message: msg },
+      { status: 503 }
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

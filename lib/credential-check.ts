@@ -5,6 +5,7 @@
  * - AUTH_DEBUG 전용 테스트 계정
  */
 import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 
@@ -89,21 +90,34 @@ export async function verifyLoginCredentials(
   let dbPasswordMatch: boolean | undefined;
 
   if (!match && inputEmail.length > 0 && inputPassword.length > 0) {
-    const user = await prisma.user.findFirst({
-      where: { email: { equals: inputEmail, mode: "insensitive" } },
-    });
-    if (user?.passwordHash) {
-      try {
-        dbPasswordMatch = await bcrypt.compare(
-          inputPassword,
-          user.passwordHash
-        );
-      } catch {
-        dbPasswordMatch = false;
+    try {
+      const user = await prisma.user.findFirst({
+        where: { email: { equals: inputEmail, mode: "insensitive" } },
+        select: { id: true, email: true, passwordHash: true },
+      });
+      if (user?.passwordHash) {
+        try {
+          dbPasswordMatch = await bcrypt.compare(
+            inputPassword,
+            user.passwordHash
+          );
+        } catch {
+          dbPasswordMatch = false;
+        }
+        if (dbPasswordMatch && user.email) {
+          match = true;
+          resolvedEmail = user.email.toLowerCase();
+        }
       }
-      if (dbPasswordMatch && user.email) {
-        match = true;
-        resolvedEmail = user.email.toLowerCase();
+    } catch (e) {
+      // DB에 password_hash 컬럼이 없으면(P2022) 팀원 DB 로그인만 불가, env/디버그는 위에서 처리됨
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === "P2022"
+      ) {
+        /* skip */
+      } else {
+        throw e;
       }
     }
   }
