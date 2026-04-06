@@ -1,14 +1,14 @@
 import { CredentialsLoginForm } from "@/components/auth/credentials-login-form";
 import { isSignupAvailable } from "@/lib/signup-gate";
 
-export default function AdminLoginPage() {
+export default function WorkspaceLoginPage() {
   const signupEnabled = isSignupAvailable();
   return (
     <CredentialsLoginForm
-      variant="admin"
+      variant="workspace"
       signupEnabled={signupEnabled}
-      defaultCallbackUrl="/admin/experiments"
-      showDiagnose
+      defaultCallbackUrl="/workspace/experiments"
+      showDiagnose={false}
     />
   );
 }

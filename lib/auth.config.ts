@@ -4,6 +4,7 @@
  */
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { getSessionMaxAgeSeconds } from "@/lib/auth-session-max-age";
 
 export default {
   secret:
@@ -12,7 +13,10 @@ export default {
       ? "dev-secret-replace-in-production"
       : undefined),
   trustHost: true,
-  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
+  session: {
+    strategy: "jwt",
+    maxAge: getSessionMaxAgeSeconds(),
+  },
   pages: {
     signIn: "/admin/login",
     error: "/admin/auth-error",

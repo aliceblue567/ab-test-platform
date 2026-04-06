@@ -9,12 +9,13 @@ import {
 } from "@/lib/admin-gate";
 import { getInternalGatePrefix } from "@/lib/internal-routes";
 
-/** NextAuth 없이 접근 가능한 /admin 경로 */
-const NEXTAUTH_PUBLIC = [
+/** 게이트·로그인 등 세션 없이 접근 가능한 경로 */
+const AUTH_PUBLIC_PATHS = [
   "/admin/login",
   "/admin/signup",
   "/admin/auth-error",
   "/admin/gate",
+  "/workspace/login",
 ] as const;
 
 function matchesPublic(pathname: string, prefixes: readonly string[]): boolean {
@@ -63,9 +64,17 @@ export default auth(async (req) => {
       }
     }
 
-    const nextAuthPublic = matchesPublic(pathname, NEXTAUTH_PUBLIC);
-    if (!nextAuthPublic && !req.auth) {
-      const login = new URL("/admin/login", req.nextUrl.origin);
+    const authPublic = matchesPublic(pathname, AUTH_PUBLIC_PATHS);
+    if (!authPublic && !req.auth) {
+      const goWorkspace =
+        pathname === "/workspace" ||
+        pathname.startsWith("/workspace/") ||
+        pathname === "/insight" ||
+        pathname.startsWith("/insight/");
+      const login = new URL(
+        goWorkspace ? "/workspace/login" : "/admin/login",
+        req.nextUrl.origin
+      );
       login.searchParams.set(
         "callbackUrl",
         `${pathname}${req.nextUrl.search}`
@@ -78,7 +87,7 @@ export default auth(async (req) => {
       req.auth &&
       (role === "member" || role === "viewer") &&
       pathname.startsWith("/admin") &&
-      !matchesPublic(pathname, NEXTAUTH_PUBLIC)
+      !matchesPublic(pathname, AUTH_PUBLIC_PATHS)
     ) {
       return NextResponse.redirect(
         new URL("/workspace/experiments", req.nextUrl.origin)

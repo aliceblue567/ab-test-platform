@@ -9,17 +9,25 @@ import {
   parseRequestBody,
   verifyLoginCredentials,
 } from "@/lib/credential-check";
+import { buildCredentialsJwtFields } from "@/lib/auth-jwt-payload";
+import { loginPagePathForCallback } from "@/lib/auth-login-redirect";
+import { getSessionMaxAgeSeconds } from "@/lib/auth-session-max-age";
 
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") ?? "";
     const body = await parseRequestBody(req, contentType);
     const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
+    const loginPath = loginPagePathForCallback(callbackUrl);
+    const maxAge = getSessionMaxAgeSeconds();
     const result = await verifyLoginCredentials(body);
 
     if (!result.match) {
       return NextResponse.redirect(
-        new URL(`/admin/login?error=CredentialsSignin&callbackUrl=${encodeURIComponent(callbackUrl)}`, req.url)
+        new URL(
+          `${loginPath}?error=CredentialsSignin&callbackUrl=${encodeURIComponent(callbackUrl)}`,
+          req.url
+        )
       );
     }
 
@@ -29,7 +37,10 @@ export async function POST(req: NextRequest) {
     );
     if (!user) {
       return NextResponse.redirect(
-        new URL(`/admin/login?error=CredentialsSignin&callbackUrl=${encodeURIComponent(callbackUrl)}`, req.url)
+        new URL(
+          `${loginPath}?error=CredentialsSignin&callbackUrl=${encodeURIComponent(callbackUrl)}`,
+          req.url
+        )
       );
     }
 
@@ -38,15 +49,10 @@ export async function POST(req: NextRequest) {
 
     const secret = process.env.AUTH_SECRET || "dev-secret-replace-in-production";
     const token = await encode({
-      token: {
-        sub: user.id,
-        email: user.email ?? undefined,
-        name: user.name ?? undefined,
-        id: user.id,
-      },
+      token: buildCredentialsJwtFields(user),
       secret,
       salt: cookieName,
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge,
     });
 
     const res = NextResponse.redirect(new URL(callbackUrl, req.url));
@@ -55,7 +61,7 @@ export async function POST(req: NextRequest) {
       secure: isSecure,
       sameSite: "lax",
       path: "/",
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge,
     });
 
     return res;

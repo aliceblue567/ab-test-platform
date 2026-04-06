@@ -8,16 +8,21 @@ import {
   parseRequestBody,
   verifyLoginCredentials,
 } from "@/lib/credential-check";
+import { buildCredentialsJwtFields } from "@/lib/auth-jwt-payload";
+import { loginPagePathForCallback } from "@/lib/auth-login-redirect";
+import { getSessionMaxAgeSeconds } from "@/lib/auth-session-max-age";
 
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") ?? "";
     const body = await parseRequestBody(req, contentType);
     const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
+    const loginPath = loginPagePathForCallback(callbackUrl);
+    const maxAge = getSessionMaxAgeSeconds();
     const result = await verifyLoginCredentials(body);
 
     if (!result.match) {
-      const loginUrl = new URL("/admin/login", req.url);
+      const loginUrl = new URL(loginPath, req.url);
       loginUrl.searchParams.set("error", "CredentialsSignin");
       loginUrl.searchParams.set("callbackUrl", callbackUrl);
       const useRedirect = body?.redirect === "1" || body?.redirect === "true";
@@ -47,7 +52,7 @@ export async function POST(req: NextRequest) {
       !result.dbPasswordMatch
     );
     if (!user) {
-      const loginUrl = new URL("/admin/login", req.url);
+      const loginUrl = new URL(loginPath, req.url);
       loginUrl.searchParams.set("error", "CredentialsSignin");
       loginUrl.searchParams.set("callbackUrl", callbackUrl);
       const useRedirect = body?.redirect === "1" || body?.redirect === "true";
@@ -65,15 +70,10 @@ export async function POST(req: NextRequest) {
 
     const secret = process.env.AUTH_SECRET || "dev-secret-replace-in-production";
     const token = await encode({
-      token: {
-        sub: user.id,
-        email: user.email ?? undefined,
-        name: user.name ?? undefined,
-        id: user.id,
-      },
+      token: buildCredentialsJwtFields(user),
       secret,
       salt: cookieName,
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge,
     });
 
     const useRedirect = body?.redirect === "1" || body?.redirect === "true";
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       secure: isSecure,
       sameSite: "lax",
       path: "/",
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge,
     });
 
     return res;

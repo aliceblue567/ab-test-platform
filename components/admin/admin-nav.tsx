@@ -105,8 +105,11 @@ export function AdminNav() {
         )}
       >
         <Users className="h-5 w-5 shrink-0" />
-        팀 워크스페이스 (미리보기)
+        팀 워크스페이스
       </Link>
+      <p className="px-3 text-[10px] leading-snug text-muted-foreground">
+        팀원과 같은 사이드 메뉴·저장함. 실험 데이터는 관리자는 전체, 팀원은 본인 것만.
+      </p>
 
       <div className="mt-auto border-t border-border pt-4">
         <Link
