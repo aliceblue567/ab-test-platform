@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { UX_FLOW_MAX_SCREEN_COUNT } from "@/lib/ux-insight/flow-limits";
 import { runGeminiFlowAnalysis } from "@/lib/ux-insight/gemini-flow-analysis";
 import { sanitizePersonaTextForApi } from "@/lib/ux-insight/sanitize-prompt";
 import { NextResponse } from "next/server";
@@ -25,9 +26,11 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  if (files.length > 8) {
+  if (files.length > UX_FLOW_MAX_SCREEN_COUNT) {
     return NextResponse.json(
-      { error: "한 번에 최대 8장까지 업로드할 수 있습니다." },
+      {
+        error: `한 번에 최대 ${UX_FLOW_MAX_SCREEN_COUNT}장까지 업로드할 수 있습니다.`,
+      },
       { status: 400 }
     );
   }

@@ -23,6 +23,7 @@ import {
   prepareImageFileForUxInsightApi,
 } from "@/lib/ux-insight/client-image-prep";
 import { applyPrivacyMaskToImageFile } from "@/lib/ux-insight/image-privacy-mask";
+import { UX_FLOW_MAX_SCREEN_COUNT } from "@/lib/ux-insight/flow-limits";
 import { computeTotalFrictionScore } from "@/lib/ux-insight/project-run-v1";
 import { extractTheoryRefs } from "@/lib/ux-insight/extract-theory-refs";
 import { friction5ToTier, tierBadgeClass } from "@/lib/ux-insight/flow-friction-visual";
@@ -324,8 +325,14 @@ export function FlowWorkbench() {
     setFiles((prev) => {
       const next = [...prev];
       for (const f of arr) {
-        if (next.length >= 8) break;
+        if (next.length >= UX_FLOW_MAX_SCREEN_COUNT) break;
         next.push(f);
+      }
+      const room = Math.max(0, UX_FLOW_MAX_SCREEN_COUNT - prev.length);
+      if (arr.length > room) {
+        toast.message(
+          `플로우 이미지는 최대 ${UX_FLOW_MAX_SCREEN_COUNT}장까지 추가할 수 있습니다.`
+        );
       }
       return next;
     });
@@ -504,7 +511,7 @@ export function FlowWorkbench() {
           <CardHeader>
             <CardTitle className="text-base">플로우 이미지</CardTitle>
             <CardDescription>
-              2~8장 · 드래그 앤 드롭 추가 · 스텝 카드 드래그로 순서 변경 · 업로드 전
+              2~{UX_FLOW_MAX_SCREEN_COUNT}장 · 드래그 앤 드롭 추가 · 스텝 카드 드래그로 순서 변경 · 업로드 전
               자동 리사이즈
             </CardDescription>
           </CardHeader>
@@ -647,7 +654,8 @@ export function FlowWorkbench() {
                     </div>
                   );
                 })}
-                {previewUrls.length > 0 && previewUrls.length < 8 && (
+                {previewUrls.length > 0 &&
+                  previewUrls.length < UX_FLOW_MAX_SCREEN_COUNT && (
                   <button
                     type="button"
                     onClick={() => inputRef.current?.click()}

@@ -11,6 +11,7 @@ import {
   parseUxFlowAnalysisV1,
   type UxFlowAnalysisV1,
 } from "@/lib/ux-insight/flow-analysis-v1";
+import { UX_FLOW_MAX_SCREEN_COUNT } from "@/lib/ux-insight/flow-limits";
 
 /** 2단계 분석은 환경 변수로만 켭니다(기본 off — 응답 불안정·잘림 시 실패가 잦음). UX_FLOW_TWO_STEP=true */
 const USE_TWO_STEP =
@@ -110,8 +111,10 @@ export async function runGeminiFlowAnalysis(params: {
   if (params.images.length < 2) {
     throw new Error("At least 2 images required for flow analysis");
   }
-  if (params.images.length > 8) {
-    throw new Error("Maximum 8 images per flow");
+  if (params.images.length > UX_FLOW_MAX_SCREEN_COUNT) {
+    throw new Error(
+      `Maximum ${UX_FLOW_MAX_SCREEN_COUNT} images per flow`
+    );
   }
 
   const personaAge = sanitizePersonaTextForApi(params.personaAge);
