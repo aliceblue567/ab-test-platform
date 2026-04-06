@@ -38,6 +38,8 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  // Credentials 로그인용 bcrypt 해시 (있으면 개인 비번으로 로그인)
+  passwordHash  String?   @map("password_hash") @db.Text
   role          UserRole  @default(admin)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

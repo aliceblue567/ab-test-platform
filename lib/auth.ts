@@ -7,7 +7,8 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
-import { checkCredentials } from "@/lib/credential-check";
+import { getOrCreateCredentialsUser } from "@/lib/auth-session-user";
+import { verifyLoginCredentials } from "@/lib/credential-check";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -39,28 +40,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         const creds = (credentials ?? {}) as Record<string, unknown>;
-        const result = checkCredentials(creds);
+        const result = await verifyLoginCredentials(creds);
         if (!result.match) {
           console.error("[Auth] authorize 실패", {
             credKeys: Object.keys(creds),
             envMatch: result.envMatch,
             knownMatch: result.knownMatch,
+            dbPasswordMatch: result.dbPasswordMatch,
           });
           return null;
         }
 
         const email = result.email;
         try {
-          let user = await prisma.user.findUnique({ where: { email } });
-          if (!user) {
-            user = await prisma.user.create({
-              data: {
-                email,
-                name: "관리자",
-                role: "admin",
-              },
-            });
-          }
+          const user = await getOrCreateCredentialsUser(
+            email,
+            !result.dbPasswordMatch
+          );
+          if (!user) return null;
           return { id: user.id, email: user.email!, name: user.name };
         } catch (err) {
           console.error("[Auth] DB error during login:", err);

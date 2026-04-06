@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { isSignupAvailable } from "@/lib/signup-gate";
 
-function LoginForm() {
+function LoginForm({ signupEnabled }: { signupEnabled: boolean }) {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/admin/experiments";
   const urlError = searchParams.get("error");
@@ -170,7 +171,9 @@ function LoginForm() {
             )}
           </form>
           <p className="mt-4 text-xs text-muted-foreground text-center">
-            환경 변수 AUTH_ADMIN_EMAIL, AUTH_ADMIN_PASSWORD로 설정된 계정으로 로그인합니다.
+            {signupEnabled
+              ? "가입한 이메일·비밀번호 또는 관리자 환경 변수 계정으로 로그인합니다."
+              : "DB에 등록된 이메일·비밀번호 또는 AUTH_ADMIN_EMAIL / AUTH_ADMIN_PASSWORD 계정으로 로그인합니다."}
           </p>
           <p className="mt-1 text-xs text-muted-foreground text-center">
             배포·환경 변수는 저장소의 <code className="rounded bg-muted px-1">DEPLOY_GUIDE.md</code> 참고.
@@ -187,13 +190,14 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const signupEnabled = isSignupAvailable();
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">로딩 중...</p>
       </div>
     }>
-      <LoginForm />
+      <LoginForm signupEnabled={signupEnabled} />
     </Suspense>
   );
 }

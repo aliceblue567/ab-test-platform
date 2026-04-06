@@ -3,10 +3,10 @@
  */
 import { encode } from "@auth/core/jwt";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { getOrCreateCredentialsUser } from "@/lib/auth-session-user";
 import {
-  checkCredentials,
   parseRequestBody,
+  verifyLoginCredentials,
 } from "@/lib/credential-check";
 
 export async function POST(req: NextRequest) {
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get("content-type") ?? "";
     const body = await parseRequestBody(req, contentType);
     const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
-    const result = checkCredentials(body);
+    const result = await verifyLoginCredentials(body);
 
     if (!result.match) {
       const loginUrl = new URL("/admin/login", req.url);
@@ -35,22 +35,27 @@ export async function POST(req: NextRequest) {
             envPasswordSet: result.envPasswordSet,
             envMatch: result.envMatch,
             knownMatch: result.knownMatch,
+            dbPasswordMatch: result.dbPasswordMatch,
           },
         },
         { status: 401 }
       );
     }
 
-    const email = result.email;
-    let user = await prisma.user.findUnique({ where: { email } });
+    const user = await getOrCreateCredentialsUser(
+      result.email,
+      !result.dbPasswordMatch
+    );
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email,
-          name: "관리자",
-          role: "admin",
-        },
-      });
+      const loginUrl = new URL("/admin/login", req.url);
+      loginUrl.searchParams.set("error", "CredentialsSignin");
+      loginUrl.searchParams.set("callbackUrl", callbackUrl);
+      const useRedirect = body?.redirect === "1" || body?.redirect === "true";
+      if (useRedirect) return NextResponse.redirect(loginUrl);
+      return NextResponse.json(
+        { error: "CredentialsSignin", debug: { reason: "no_user_row" } },
+        { status: 401 }
+      );
     }
 
     const isSecure =

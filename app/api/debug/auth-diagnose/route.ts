@@ -4,10 +4,10 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { encode } from "@auth/core/jwt";
-import { prisma } from "@/lib/db";
+import { getOrCreateCredentialsUser } from "@/lib/auth-session-user";
 import {
-  checkCredentials,
   parseRequestBody,
+  verifyLoginCredentials,
 } from "@/lib/credential-check";
 
 export async function POST(req: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get("content-type") ?? "";
     const doLogin = req.headers.get("x-do-login") === "true";
     const body = await parseRequestBody(req, contentType);
-    const result = checkCredentials(body);
+    const result = await verifyLoginCredentials(body);
 
     const diagnostic = {
       receivedKeys: Object.keys(body),
@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       envPasswordSet: result.envPasswordSet,
       emailMatch: result.emailMatch,
       passwordMatch: result.passwordMatch,
+      dbPasswordMatch: result.dbPasswordMatch,
       bothMatch: result.match,
       ...(result.debugMismatch && { debugMismatch: result.debugMismatch }),
     };
@@ -46,15 +47,15 @@ export async function POST(req: NextRequest) {
 
     if (doLogin) {
       const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
-      let user = await prisma.user.findUnique({ where: { email: result.email } });
+      const user = await getOrCreateCredentialsUser(
+        result.email,
+        !result.dbPasswordMatch
+      );
       if (!user) {
-        user = await prisma.user.create({
-          data: {
-            email: result.email,
-            name: "관리자",
-            role: "admin",
-          },
-        });
+        return NextResponse.json(
+          { error: "CredentialsSignin", reason: "no_user_row", ...diagnostic },
+          { status: 401 }
+        );
       }
 
       const isSecure =

@@ -4,10 +4,10 @@
  */
 import { encode } from "@auth/core/jwt";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { getOrCreateCredentialsUser } from "@/lib/auth-session-user";
 import {
-  checkCredentials,
   parseRequestBody,
+  verifyLoginCredentials,
 } from "@/lib/credential-check";
 
 export async function POST(req: NextRequest) {
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get("content-type") ?? "";
     const body = await parseRequestBody(req, contentType);
     const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
-    const result = checkCredentials(body);
+    const result = await verifyLoginCredentials(body);
 
     if (!result.match) {
       return NextResponse.redirect(
@@ -23,15 +23,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let user = await prisma.user.findUnique({ where: { email: result.email } });
+    const user = await getOrCreateCredentialsUser(
+      result.email,
+      !result.dbPasswordMatch
+    );
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: result.email,
-          name: "관리자",
-          role: "admin",
-        },
-      });
+      return NextResponse.redirect(
+        new URL(`/admin/login?error=CredentialsSignin&callbackUrl=${encodeURIComponent(callbackUrl)}`, req.url)
+      );
     }
 
     const isSecure = req.nextUrl.protocol === "https:";

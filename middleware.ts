@@ -11,6 +11,7 @@ import { getInternalGatePrefix } from "@/lib/internal-routes";
 /** NextAuth 없이 접근 가능한 /admin 경로 */
 const NEXTAUTH_PUBLIC = [
   "/admin/login",
+  "/admin/signup",
   "/admin/auth-error",
   "/admin/gate",
 ] as const;
