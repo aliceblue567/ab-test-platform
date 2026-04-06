@@ -1,3 +1,5 @@
+import { buildLayeredAuditJsonBlock } from "@/lib/ux-insight/layered-audit-prompt";
+import { parseUxAuditLayers } from "@/lib/ux-insight/layered-audit-v1";
 import { coerceUxFlowRaw } from "@/lib/ux-insight/coerce-ux-flow";
 import { extractJsonObjectFromModelText } from "@/lib/ux-insight/parse-model-json";
 import { buildFlowPsychologyFrameworkPrompt } from "@/lib/ux-insight/flow-psychology-prompt";
@@ -10,6 +12,7 @@ import {
   type UxFlowAnalysisV1,
 } from "@/lib/ux-insight/flow-analysis-v1";
 
+/** 2단계 분석은 환경 변수로만 켭니다(기본 off — 응답 불안정·잘림 시 실패가 잦음). UX_FLOW_TWO_STEP=true */
 const USE_TWO_STEP =
   process.env.UX_FLOW_TWO_STEP === "true" ||
   process.env.UX_FLOW_TWO_STEP === "1";
@@ -36,7 +39,9 @@ function buildFinalJsonInstructions(params: {
 - ux_flow_metrics: {{ ux_seamlessness_index: 0~100(높을수록 매끄러움), ux_worst_transition_to_step: 마찰 최대 구간의 to_step 정수 또는 null, ux_executive_summary }}
 - ux_flow_hotspots(선택): {{ ux_step_index, x_pct, y_pct(0~100), ux_note, ux_related_transition_from?, ux_related_transition_to? }} 배열
 
-이론 ID는 friction_summary나 theory_note에 [NH-01,LUX-HICK] 형태로 넣으세요.`;
+이론 ID는 friction_summary나 theory_note에 [NH-01,LUX-HICK] 형태로 넣으세요.
+
+${buildLayeredAuditJsonBlock("flow", { flowStepCount: n })}`;
 }
 
 function buildUserPrompt(params: {
@@ -198,6 +203,9 @@ ${JSON.stringify(prepObj)}`;
     );
   }
 
+  const layersRaw = data["ux_audit_layers"];
+  delete data["ux_audit_layers"];
+
   mergeFlowWithProjectId(data, params.uxProjectId ?? null);
 
   const parsed = parseUxFlowAnalysisV1(data);
@@ -212,5 +220,15 @@ ${JSON.stringify(prepObj)}`;
       `AI 플로우 JSON이 규격과 맞지 않습니다.${hint} 잠시 후 다시 시도해 주세요.`
     );
   }
-  return parsed.data;
+
+  let out: UxFlowAnalysisV1 = { ...parsed.data };
+  if (layersRaw !== undefined) {
+    const lp = parseUxAuditLayers(layersRaw);
+    if (lp.ok) {
+      out = { ...out, ux_audit_layers: lp.data };
+    } else {
+      console.warn("[ux-flow] ux_audit_layers parse skipped:", lp.error.flatten());
+    }
+  }
+  return out;
 }

@@ -10,8 +10,26 @@ function deepClone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
 }
 
+function relaxGeminiSchemaAdditionalProperties(node: unknown): unknown {
+  if (node === null || typeof node !== "object") return node;
+  if (Array.isArray(node)) {
+    return node.map(relaxGeminiSchemaAdditionalProperties);
+  }
+  const o = node as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    out[k] = relaxGeminiSchemaAdditionalProperties(v);
+  }
+  if (out.additionalProperties === false) {
+    out.additionalProperties = true;
+  }
+  return out;
+}
+
 export function getUxScreenAnalysisGeminiJsonSchema(): JsonRecord {
-  const s = deepClone(rawSchema) as JsonRecord;
+  const s = relaxGeminiSchemaAdditionalProperties(
+    deepClone(rawSchema)
+  ) as JsonRecord;
   delete s.$schema;
   delete s.$id;
 

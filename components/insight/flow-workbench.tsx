@@ -18,10 +18,37 @@ import type {
   UxFlowAnalysisV1,
   UxFlowHotspotV1,
 } from "@/lib/ux-insight/flow-analysis-v1";
-import { resizeImageFilesForUxInsight } from "@/lib/ux-insight/client-image-prep";
+import {
+  budgetBytesPerFlowImage,
+  prepareImageFileForUxInsightApi,
+} from "@/lib/ux-insight/client-image-prep";
+import { applyPrivacyMaskToImageFile } from "@/lib/ux-insight/image-privacy-mask";
 import { computeTotalFrictionScore } from "@/lib/ux-insight/project-run-v1";
 import { extractTheoryRefs } from "@/lib/ux-insight/extract-theory-refs";
+import { friction5ToTier, tierBadgeClass } from "@/lib/ux-insight/flow-friction-visual";
+import {
+  deriveStepJourney,
+  buildTop3Issues,
+  buildImprovementBoard,
+  expectedImpactSummary,
+  dataProvenanceLabel,
+  frictionToPriority,
+  inferProblemTag,
+  userImpactFromDimensions,
+  improvementForTransition,
+  deriveCauseForTransition,
+  inferDifficultyHint,
+  priorityLabelKo,
+  type PriorityLevel,
+} from "@/lib/ux-insight/flow-report-derive";
+import { hotspotKeysForTransition } from "@/lib/ux-insight/flow-hotspot-link";
+import {
+  humanizeTheoryIdsInText,
+  theoryRefsToReadableList,
+} from "@/lib/ux-insight/ux-theories-lookup";
+import { FlowHealthGauge } from "@/components/insight/flow-health-gauge";
 import { FlowInsightCanvas } from "@/components/insight/flow-insight-canvas";
+import { FlowStepOverlayStrip } from "@/components/insight/flow-step-overlay-strip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,12 +62,25 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { LayeredAuditDashboard } from "@/components/insight/layered-audit-dashboard";
+import { FlowStepContextBar } from "@/components/insight/flow-step-context-bar";
+import { FlowStepJourneyEnhanced } from "@/components/insight/flow-step-journey-enhanced";
+import { FlowTransitionUnifiedCard } from "@/components/insight/flow-transition-unified-card";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-function frictionHue(score: number) {
-  if (score >= 5) return "bg-destructive text-destructive-foreground ring-2 ring-destructive/60";
-  if (score >= 4) return "bg-orange-600 text-white";
-  if (score >= 3) return "bg-amber-500 text-black";
-  return "bg-emerald-600/90 text-white";
+function bulletsFromTheoryNote(note: string | undefined): string[] {
+  if (!note?.trim()) return [];
+  return note
+    .split(/\n/)
+    .map((l) => l.replace(/^[\s•\-*\d.]+/, "").trim())
+    .filter((l) => l.length > 0);
 }
 
 function newProjectId() {
@@ -70,7 +110,29 @@ export function FlowWorkbench() {
   const [editFrictionBuffer, setEditFrictionBuffer] = useState("");
   const [editingSummary, setEditingSummary] = useState(false);
   const [editSummaryBuffer, setEditSummaryBuffer] = useState("");
+  const [privacyMaskBeforeApi, setPrivacyMaskBeforeApi] = useState(false);
+  /** 멀티 스텝일 때 레포트 맥락(썸네일 강조); null = 전체 */
+  const [flowContextStepIndex, setFlowContextStepIndex] = useState<
+    number | null
+  >(null);
+  const [activeHotspotKey, setActiveHotspotKey] = useState<string | null>(null);
+  const [focusedTransitionIdx, setFocusedTransitionIdx] = useState<
+    number | null
+  >(null);
+  const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [filterTag, setFilterTag] = useState<string>("all");
+  const [filterStep, setFilterStep] = useState<string>("all");
+  const [sortMode, setSortMode] = useState<"friction" | "ease">("friction");
+  const transitionCardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const PROBLEM_TAGS = [
+    "탐색",
+    "입력",
+    "인지",
+    "피드백",
+    "내비게이션",
+  ] as const;
 
   const displayFlow = workingFlow ?? report;
 
@@ -88,7 +150,29 @@ export function FlowWorkbench() {
     }
     setEditingTransitionIdx(null);
     setEditingSummary(false);
+    setFlowContextStepIndex(null);
+    setActiveHotspotKey(null);
+    setFocusedTransitionIdx(null);
   }, [report]);
+
+  const flowStepContextThumbs = useMemo(() => {
+    if (!displayFlow || previewUrls.length <= 1) return [];
+    const n = Math.min(previewUrls.length, displayFlow.ux_steps.length);
+    const out: {
+      index: number;
+      label: string;
+      previewUrl: string;
+    }[] = [];
+    for (let i = 0; i < n; i++) {
+      const step = displayFlow.ux_steps.find((s) => s.ux_step_index === i);
+      out.push({
+        index: i,
+        label: step?.ux_step_label ?? `단계 ${i}`,
+        previewUrl: previewUrls[i]!,
+      });
+    }
+    return out;
+  }, [displayFlow, previewUrls]);
 
   const transitionByPair = useMemo(() => {
     if (!displayFlow) {
@@ -111,6 +195,125 @@ export function FlowWorkbench() {
     }
     return m;
   }, [displayFlow]);
+
+  const overlaySteps = useMemo(() => {
+    if (!displayFlow || previewUrls.length === 0) return [];
+    const n = Math.min(previewUrls.length, displayFlow.ux_steps.length);
+    return Array.from({ length: n }, (_, i) => ({
+      stepIndex: i,
+      label:
+        displayFlow.ux_steps.find((s) => s.ux_step_index === i)?.ux_step_label ??
+        `단계 ${i}`,
+      previewUrl: previewUrls[i]!,
+      hotspots: hotspotsByStep.get(i) ?? [],
+    }));
+  }, [displayFlow, previewUrls, hotspotsByStep]);
+
+  const allHotspotsFlat = useMemo(
+    () => displayFlow?.ux_flow_hotspots ?? [],
+    [displayFlow?.ux_flow_hotspots]
+  );
+
+  const highlightedHotspotKeys = useMemo(() => {
+    if (focusedTransitionIdx == null || !displayFlow) {
+      return new Set<string>();
+    }
+    return hotspotKeysForTransition(
+      focusedTransitionIdx,
+      allHotspotsFlat,
+      displayFlow.ux_transitions
+    );
+  }, [
+    focusedTransitionIdx,
+      displayFlow,
+      allHotspotsFlat,
+  ]);
+
+  const provenanceTag = useMemo(
+    () => dataProvenanceLabel(displayFlow?.ux_audit_layers ?? null),
+    [displayFlow?.ux_audit_layers]
+  );
+
+  const stepJourney = useMemo(
+    () => (displayFlow ? deriveStepJourney(displayFlow) : []),
+    [displayFlow]
+  );
+
+  const top3Issues = useMemo(
+    () => (displayFlow ? buildTop3Issues(displayFlow) : []),
+    [displayFlow]
+  );
+
+  const improvementBoardRows = useMemo(
+    () => (displayFlow ? buildImprovementBoard(displayFlow) : []),
+    [displayFlow]
+  );
+
+  const impactLines = useMemo(
+    () => (displayFlow ? expectedImpactSummary(displayFlow) : []),
+    [displayFlow]
+  );
+
+  const transitionEntriesFiltered = useMemo(() => {
+    if (!displayFlow) return [];
+    const entries = displayFlow.ux_transitions.map((t, idx) => ({ t, idx }));
+    let rows = entries;
+    if (filterPriority !== "all") {
+      rows = rows.filter(
+        ({ t }) => frictionToPriority(t.ux_friction_score) === filterPriority
+      );
+    }
+    if (filterTag !== "all") {
+      rows = rows.filter(
+        ({ t }) => inferProblemTag(t.ux_friction_summary) === filterTag
+      );
+    }
+    if (filterStep !== "all") {
+      const s = Number(filterStep);
+      rows = rows.filter(
+        ({ t }) => t.ux_from_step === s || t.ux_to_step === s
+      );
+    }
+    const diffRank = (d: string) => (d === "하" ? 2 : d === "중" ? 1 : 0);
+    rows = [...rows].sort((a, b) => {
+      if (sortMode === "friction") {
+        return b.t.ux_friction_score - a.t.ux_friction_score;
+      }
+      const impA = improvementForTransition(displayFlow, a.t, a.idx);
+      const impB = improvementForTransition(displayFlow, b.t, b.idx);
+      return (
+        diffRank(
+          inferDifficultyHint(impB.action, b.t.ux_friction_score)
+        ) -
+        diffRank(inferDifficultyHint(impA.action, a.t.ux_friction_score))
+      );
+    });
+    return rows;
+  }, [
+    displayFlow,
+    filterPriority,
+    filterTag,
+    filterStep,
+    sortMode,
+  ]);
+
+  const scrollToTransition = useCallback((transitionIndex: number) => {
+    setFocusedTransitionIdx(transitionIndex);
+    setActiveHotspotKey(null);
+    requestAnimationFrame(() => {
+      transitionCardRefs.current[transitionIndex]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  }, []);
+
+  const topPriorityBadge: Record<PriorityLevel, string> = {
+    critical: "bg-red-600 text-white border-red-700",
+    high: "bg-orange-600 text-white border-orange-700",
+    medium: "bg-amber-500/90 text-black border-amber-600",
+    low: "bg-muted text-muted-foreground border-border",
+  };
 
   const addFiles = useCallback((list: FileList | File[]) => {
     const arr = Array.from(list).filter((f) => f.type.startsWith("image/"));
@@ -167,9 +370,35 @@ export function FlowWorkbench() {
     setLoading(true);
     setReport(null);
     try {
-      const resized = await resizeImageFilesForUxInsight(files);
+      const budget = budgetBytesPerFlowImage(files.length);
+      let toSend = await Promise.all(
+        files.map((f) =>
+          prepareImageFileForUxInsightApi(f, { maxBytes: budget })
+        )
+      );
+      if (privacyMaskBeforeApi) {
+        try {
+          toSend = await Promise.all(
+            toSend.map((f) => applyPrivacyMaskToImageFile(f))
+          );
+          toSend = await Promise.all(
+            toSend.map((f) =>
+              prepareImageFileForUxInsightApi(f, { maxBytes: budget })
+            )
+          );
+        } catch {
+          toast.message(
+            "로컬 블러에 실패해 압축만 적용한 이미지로 전송합니다."
+          );
+          toSend = await Promise.all(
+            files.map((f) =>
+              prepareImageFileForUxInsightApi(f, { maxBytes: budget })
+            )
+          );
+        }
+      }
       const fd = new FormData();
-      resized.forEach((f) => fd.append("image", f));
+      toSend.forEach((f) => fd.append("image", f));
       fd.append("flow_title", flowTitle);
       fd.append("persona_age", personaAge);
       fd.append("persona_proficiency", personaProficiency);
@@ -188,7 +417,7 @@ export function FlowWorkbench() {
         data = {};
       }
       if (!res.ok) {
-        const err =
+        let err =
           typeof data === "object" &&
           data !== null &&
           "error" in data &&
@@ -200,6 +429,10 @@ export function FlowWorkbench() {
                 typeof (data as { message: unknown }).message === "string"
               ? (data as { message: string }).message
               : `분석 실패 (HTTP ${res.status})`;
+        if (res.status === 413) {
+          err =
+            "요청이 너무 큽니다(HTTP 413). 한 번에 올리는 이미지 수·크기를 줄이거나(장당 약 수백KB 권장), 새로고침 후 다시 시도해 주세요.";
+        }
         toast.error(err);
         return;
       }
@@ -258,7 +491,11 @@ export function FlowWorkbench() {
           화면을 <strong className="text-foreground">시간 순서대로</strong> 가로로
           나열하고, 단계 사이 심리적 마찰을 분석합니다. 썸네일을{" "}
           <strong className="text-foreground">드래그하여 순서</strong>를 바꿀 수
-          있습니다.
+          있습니다. 분석 후 결과는{" "}
+          <strong className="text-foreground">
+            요약 → 핵심 Top 3 → 단계별 상세 → 개선 보드 → 기대 효과
+          </strong>
+          순으로 표시됩니다.
         </p>
       </div>
 
@@ -390,7 +627,9 @@ export function FlowWorkbench() {
                               <div
                                 className={cn(
                                   "flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-md",
-                                  frictionHue(tNext.ux_friction_score)
+                                  tierBadgeClass(
+                                    friction5ToTier(tNext.ux_friction_score)
+                                  )
                                 )}
                                 title="심리적 마찰 (5=심함, 스펙 상 ‘고마찰’ 구간은 4~5)"
                               >
@@ -418,6 +657,22 @@ export function FlowWorkbench() {
                   </button>
                 )}
               </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/20 px-3 py-2">
+              <div className="space-y-0.5">
+                <Label htmlFor="flow-privacy" className="text-sm font-medium">
+                  API 전송 전 로컬 블러
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  고변동 영역 추정 후 블러(완전한 개인정보 삭제는 아님).
+                </p>
+              </div>
+              <Switch
+                id="flow-privacy"
+                checked={privacyMaskBeforeApi}
+                onCheckedChange={setPrivacyMaskBeforeApi}
+              />
             </div>
 
             <Button
@@ -504,19 +759,23 @@ export function FlowWorkbench() {
 
       {displayFlow && !loading && (
         <div className="space-y-6">
+          {/* 1. 플로우 요약 */}
           <Card>
-            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
+            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0 pb-3">
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle>{displayFlow.ux_flow_title}</CardTitle>
+                  <CardTitle className="text-lg">{displayFlow.ux_flow_title}</CardTitle>
                   {displayFlow.ux_project_id && (
                     <Badge variant="outline" className="font-mono text-[10px]">
                       {displayFlow.ux_project_id}
                     </Badge>
                   )}
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="text-xs">
                     마찰 합계 {computeTotalFrictionScore(displayFlow)} /{" "}
                     {displayFlow.ux_transitions.length * 5}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                    {provenanceTag}
                   </Badge>
                 </div>
                 {editingSummary ? (
@@ -527,11 +786,7 @@ export function FlowWorkbench() {
                       onChange={(e) => setEditSummaryBuffer(e.target.value)}
                     />
                     <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={saveSummaryEdit}
-                      >
+                      <Button type="button" size="sm" onClick={saveSummaryEdit}>
                         요약 저장
                       </Button>
                       <Button
@@ -545,7 +800,7 @@ export function FlowWorkbench() {
                     </div>
                   </div>
                 ) : (
-                  <CardDescription className="text-pretty">
+                  <CardDescription className="text-pretty text-sm leading-relaxed">
                     {displayFlow.ux_flow_metrics.ux_executive_summary}
                   </CardDescription>
                 )}
@@ -555,7 +810,7 @@ export function FlowWorkbench() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="gap-1 shrink-0"
+                  className="shrink-0 gap-1"
                   onClick={() => {
                     setEditSummaryBuffer(
                       displayFlow.ux_flow_metrics.ux_executive_summary
@@ -568,194 +823,499 @@ export function FlowWorkbench() {
                 </Button>
               )}
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <div className="mb-2 flex justify-between text-sm">
-                  <span className="text-muted-foreground">매끄러움 지수</span>
-                  <span className="font-mono font-medium">
-                    {displayFlow.ux_flow_metrics.ux_seamlessness_index} / 100
-                  </span>
-                </div>
-                <div className="h-3 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all"
-                    style={{
-                      width: `${displayFlow.ux_flow_metrics.ux_seamlessness_index}%`,
-                    }}
+            <CardContent className="space-y-5 pt-0">
+              <div className="flex flex-col items-stretch gap-5 sm:flex-row sm:items-start">
+                <div className="flex shrink-0 justify-center sm:w-[200px]">
+                  <FlowHealthGauge
+                    seamlessnessIndex={
+                      displayFlow.ux_flow_metrics.ux_seamlessness_index
+                    }
                   />
                 </div>
-              </div>
-              {displayFlow.ux_flow_metrics.ux_worst_transition_to_step !=
-                null && (
-                <p className="text-sm text-muted-foreground">
-                  가장 마찰이 큰 전환:{" "}
-                  <Badge variant="outline">
-                    → 화면{" "}
-                    {displayFlow.ux_flow_metrics.ux_worst_transition_to_step}
-                  </Badge>
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">플로 캔버스</CardTitle>
-              <CardDescription>
-                전환 구간 마찰 점수 시각화 (4~5: 고마찰·붉은 엣지)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="rounded-lg border border-border bg-card/50 p-2">
-              <FlowInsightCanvas flow={displayFlow} />
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {displayFlow.ux_transitions.map((t, idx) => {
-              const refs = extractTheoryRefs(
-                t.ux_friction_summary,
-                t.ux_theory_note
-              );
-              const d = t.ux_psychological_dimensions;
-              const isEditing = editingTransitionIdx === idx;
-              return (
-                <Card
-                  key={idx}
-                  className={cn(
-                    "border-l-4",
-                    t.ux_friction_score >= 4
-                      ? "border-l-destructive"
-                      : t.ux_friction_score >= 3
-                        ? "border-l-amber-500"
-                        : "border-l-emerald-600"
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">매끄러움 지수</span>
+                    <span className="font-mono font-medium tabular-nums">
+                      {displayFlow.ux_flow_metrics.ux_seamlessness_index} / 100
+                    </span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-red-500 via-amber-400 to-emerald-500 transition-all"
+                      style={{
+                        width: `${displayFlow.ux_flow_metrics.ux_seamlessness_index}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    마찰 1~5 스케일을 체감 2~10으로 환산합니다.{" "}
+                    <span className="text-emerald-600">낮음</span> ·{" "}
+                    <span className="text-amber-600">주의</span> ·{" "}
+                    <span className="text-red-600">즉시 점검</span>.
+                  </p>
+                  {displayFlow.ux_flow_metrics.ux_worst_transition_to_step !=
+                    null && (
+                    <p className="text-xs text-muted-foreground">
+                      최대 마찰 전환:{" "}
+                      <Badge variant="outline" className="text-[10px]">
+                        → 화면{" "}
+                        {displayFlow.ux_flow_metrics.ux_worst_transition_to_step}
+                      </Badge>
+                    </p>
                   )}
+                </div>
+              </div>
+
+              <div className="border-t border-border/60 pt-4">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    단계별 상태 · 이탈 위험
+                  </h3>
+                  <span className="text-[10px] text-muted-foreground">
+                    단계 카드에 마우스를 올리면 상세 설명
+                  </span>
+                </div>
+                <FlowStepJourneyEnhanced
+                  journey={stepJourney}
+                  previewUrls={previewUrls}
+                  flow={displayFlow}
+                />
+                {previewUrls.length === 0 &&
+                  displayFlow.ux_steps.length > 0 && (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      스크린샷이 이 세션에 없어 썸네일은 플레이스홀더입니다. 왼쪽에서
+                      이미지를 추가한 뒤 다시 분석하면 썸네일이 채워집니다.
+                    </p>
+                  )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 2. 핵심 문제 Top 3 */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground">
+              핵심 문제 Top 3
+            </h3>
+            <div className="grid gap-3 md:grid-cols-3">
+              {top3Issues.map((issue) => (
+                <button
+                  key={issue.rank}
+                  type="button"
+                  className={cn(
+                    "rounded-lg border border-border/80 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/30"
+                  )}
+                  onClick={() => scrollToTransition(issue.transitionIndex)}
                 >
-                  <CardHeader className="pb-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="font-mono">
-                        {t.ux_from_step} → {t.ux_to_step}
-                      </Badge>
-                      <Badge className={frictionHue(t.ux_friction_score)}>
-                        마찰 {t.ux_friction_score}/5
-                      </Badge>
-                      {t.ux_is_expert_edited && (
-                        <Badge
-                          variant="secondary"
-                          className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                        >
-                          전문가 편집
-                        </Badge>
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                    <Badge variant="secondary" className="text-[10px]">
+                      Top {issue.rank}
+                    </Badge>
+                    <Badge
+                      className={cn(
+                        "border px-1.5 text-[10px]",
+                        topPriorityBadge[issue.priority]
                       )}
-                      {refs.map((id) => (
-                        <Badge
-                          key={id}
-                          variant="secondary"
-                          className="font-mono text-[10px]"
-                        >
-                          {id}
-                        </Badge>
-                      ))}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto h-7 gap-1 text-xs"
-                        onClick={() => {
-                          if (isEditing) {
-                            setEditingTransitionIdx(null);
-                          } else {
-                            setEditingTransitionIdx(idx);
-                            setEditFrictionBuffer(t.ux_friction_summary);
-                          }
-                        }}
-                      >
-                        <Pencil className="h-3 w-3" />
-                        {isEditing ? "닫기" : "편집"}
-                      </Button>
-                    </div>
-                    {isEditing ? (
-                      <div className="space-y-2 pt-2">
-                        <Textarea
-                          rows={5}
-                          value={editFrictionBuffer}
-                          onChange={(e) => setEditFrictionBuffer(e.target.value)}
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => saveFrictionEdit(idx)}
-                          >
-                            저장
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditingTransitionIdx(null)}
-                          >
-                            취소
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <CardTitle className="text-base leading-snug">
-                        {t.ux_friction_summary}
-                      </CardTitle>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm text-muted-foreground">
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div className="rounded bg-muted/40 p-2">
-                        <p className="font-medium text-foreground">기대 괴리</p>
-                        <p className="mt-1 font-mono">
-                          {d.ux_expectation_gap}/5
-                        </p>
-                      </div>
-                      <div className="rounded bg-muted/40 p-2">
-                        <p className="font-medium text-foreground">인지 급증</p>
-                        <p className="mt-1 font-mono">
-                          {d.ux_cognitive_spike}/5
-                        </p>
-                      </div>
-                      <div className="rounded bg-muted/40 p-2">
-                        <p className="font-medium text-foreground">정서 마찰</p>
-                        <p className="mt-1 font-mono">
-                          {d.ux_emotional_friction}/5
-                        </p>
-                      </div>
-                    </div>
-                    {t.ux_theory_note && (
-                      <p className="text-xs">{t.ux_theory_note}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    >
+                      {priorityLabelKo(issue.priority)}
+                    </Badge>
+                  </div>
+                  <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+                    {issue.title}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {issue.affectedSteps}
+                  </p>
+                  <p className="mt-2 line-clamp-2 text-xs text-foreground/90">
+                    {issue.oneLine}
+                  </p>
+                  <p className="mt-2 border-t border-emerald-500/15 pt-2 text-[11px] font-medium leading-snug text-emerald-800 dark:text-emerald-200">
+                    대표 개선: {issue.representativeFix}
+                  </p>
+                </button>
+              ))}
+            </div>
           </div>
 
+          {/* 3. 단계별 상세 — 필터 */}
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  단계별 상세 분석
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  콜아웃 핀이나 카드를 선택하면 서로 연동됩니다.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <div className="w-full min-w-[140px] sm:w-40">
+                  <Label className="text-[10px] text-muted-foreground">
+                    우선순위
+                  </Label>
+                  <Select value={filterPriority} onValueChange={setFilterPriority}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="전체" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">전체</SelectItem>
+                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full min-w-[140px] sm:w-40">
+                  <Label className="text-[10px] text-muted-foreground">
+                    문제 유형
+                  </Label>
+                  <Select value={filterTag} onValueChange={setFilterTag}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="전체" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">전체</SelectItem>
+                      {PROBLEM_TAGS.map((tag) => (
+                        <SelectItem key={tag} value={tag}>
+                          {tag}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full min-w-[160px] sm:w-44">
+                  <Label className="text-[10px] text-muted-foreground">
+                    단계별 보기
+                  </Label>
+                  <Select value={filterStep} onValueChange={setFilterStep}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="전체 전환" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">전체 전환</SelectItem>
+                      {displayFlow.ux_steps.map((s) => (
+                        <SelectItem
+                          key={s.ux_step_index}
+                          value={String(s.ux_step_index)}
+                        >
+                          {s.ux_step_index + 1}단계 포함만
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full min-w-[160px] sm:w-44">
+                  <Label className="text-[10px] text-muted-foreground">
+                    정렬
+                  </Label>
+                  <Select
+                    value={sortMode}
+                    onValueChange={(v) =>
+                      setSortMode(v as "friction" | "ease")
+                    }
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="friction">마찰 높은 순</SelectItem>
+                      <SelectItem value="ease">구현 난이도 낮은 순</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {transitionEntriesFiltered.map(({ t, idx }) => {
+                const refs = extractTheoryRefs(
+                  t.ux_friction_summary,
+                  t.ux_theory_note
+                );
+                const theoryBrief = theoryRefsToReadableList(refs);
+                const d = t.ux_psychological_dimensions;
+                const isEditing = editingTransitionIdx === idx;
+                const imp = improvementForTransition(displayFlow, t, idx);
+                const firstSentence =
+                  t.ux_friction_summary.split(/(?<=[.!?])\s+/)[0]?.trim() ??
+                  t.ux_friction_summary.slice(0, 160);
+                const problemSummary = humanizeTheoryIdsInText(firstSentence);
+                const guideBullets = bulletsFromTheoryNote(t.ux_theory_note);
+                const bullets =
+                  guideBullets.length > 0
+                    ? guideBullets
+                    : [
+                        "이론·실행 메모를 편집에서 보강하거나, Layer 2 개선 포인트를 참고하세요.",
+                      ];
+                const cause = deriveCauseForTransition(t, imp.matchedIssueWhy);
+                const tag = inferProblemTag(t.ux_friction_summary);
+
+                return (
+                  <FlowTransitionUnifiedCard
+                    key={idx}
+                    flow={displayFlow}
+                    transition={t}
+                    index={idx}
+                    priority={frictionToPriority(t.ux_friction_score)}
+                    problemTag={tag}
+                    headlines={theoryBrief}
+                    problemSummary={problemSummary}
+                    cause={cause}
+                    userImpact={userImpactFromDimensions(d)}
+                    improvement={imp.action}
+                    expectedEffect={imp.impact}
+                    bullets={bullets.map((line) => humanizeTheoryIdsInText(line))}
+                    theoryChips={
+                      theoryBrief.length > 0 ? (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {theoryBrief.map((b) => (
+                            <span
+                              key={b.ux_theory_id}
+                              className="rounded border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                              title={`규칙 ID: ${b.ux_theory_id}`}
+                            >
+                              {b.ux_theory_label_ko}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null
+                    }
+                    isEditing={isEditing}
+                    editBuffer={editFrictionBuffer}
+                    onEditChange={setEditFrictionBuffer}
+                    onSaveEdit={() => saveFrictionEdit(idx)}
+                    onStartEdit={() => {
+                      setEditingTransitionIdx(idx);
+                      setEditFrictionBuffer(t.ux_friction_summary);
+                    }}
+                    onCancelEdit={() => setEditingTransitionIdx(null)}
+                    isFocused={focusedTransitionIdx === idx}
+                    onSelect={() => scrollToTransition(idx)}
+                    cardRef={(el) => {
+                      transitionCardRefs.current[idx] = el;
+                    }}
+                    onStopPropagation={(e) => e.stopPropagation()}
+                    dataProvenance={provenanceTag}
+                  />
+                );
+              })}
+            </div>
+            {transitionEntriesFiltered.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                필터 조건에 맞는 전환이 없습니다. 필터를 초기화해 보세요.
+              </p>
+            )}
+          </div>
+
+          {/* 4. 개선안 우선순위 보드 */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">단계 요약</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">개선안 우선순위 보드</CardTitle>
+              <CardDescription className="text-xs">
+                액션 중심 정렬 · {provenanceTag}
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <ol className="space-y-2">
-                {displayFlow.ux_steps.map((s) => (
-                  <li key={s.ux_step_index} className="flex gap-3 text-sm">
-                    <span className="font-mono text-muted-foreground">
-                      {s.ux_step_index}
+            <CardContent className="space-y-2.5">
+              {improvementBoardRows.map((row) => (
+                <div
+                  key={row.rank}
+                  className="rounded-lg border border-border/70 bg-muted/[0.12] px-3 py-2.5"
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="secondary" className="text-[10px]">
+                      {row.rank}순위
+                    </Badge>
+                    <Badge
+                      className={cn(
+                        "border px-1.5 text-[10px]",
+                        topPriorityBadge[row.priority]
+                      )}
+                    >
+                      {priorityLabelKo(row.priority)}
+                    </Badge>
+                    <span className="text-sm font-semibold text-foreground">
+                      {row.title}
                     </span>
-                    <div>
-                      <p className="font-medium">{s.ux_step_label}</p>
-                      <p className="text-muted-foreground">
-                        {s.ux_one_line_summary}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+                  </div>
+                  <ul className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                    <li>
+                      <span className="font-medium text-foreground/80">
+                        예상 효과:
+                      </span>{" "}
+                      {row.effect}
+                    </li>
+                    <li>
+                      <span className="font-medium text-foreground/80">
+                        구현 난이도:
+                      </span>{" "}
+                      {row.difficulty}
+                    </li>
+                    <li>
+                      <span className="font-medium text-foreground/80">
+                        영향 범위:
+                      </span>{" "}
+                      {row.scope}
+                    </li>
+                    <li>
+                      <span className="font-medium text-foreground/80">
+                        관련 단계:
+                      </span>{" "}
+                      {row.steps}
+                    </li>
+                  </ul>
+                </div>
+              ))}
             </CardContent>
           </Card>
+
+          {/* 5. 기대 효과 / 예상 개선 지표 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                기대 효과 · 예상 개선 지표
+              </CardTitle>
+              <CardDescription className="text-xs">
+                정량 아님 — 플로우 마찰·요약에서 도출된 가이드 ({provenanceTag})
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-inside list-disc space-y-1.5 text-sm text-muted-foreground">
+                {impactLines.map((line, i) => (
+                  <li key={i} className="leading-relaxed">
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* 고급: 캔버스, 콜아웃, 레이어, 단계 목록 */}
+          <details
+            open
+            className="group rounded-lg border border-border/80 bg-card/30"
+          >
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className="group-open:text-primary">
+                캔버스 · 콜아웃 · 3계층 감사 · 단계 목록
+              </span>
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                (접기/펼치기)
+              </span>
+            </summary>
+            <div className="space-y-6 border-t border-border/60 px-4 pb-4 pt-4">
+              {overlaySteps.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">화면 콜아웃 & 핀</CardTitle>
+                    <CardDescription className="text-xs">
+                      핀을 누르면 아래 전환 카드로 스크롤합니다.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <FlowStepOverlayStrip
+                      steps={overlaySteps}
+                      transitions={displayFlow.ux_transitions}
+                      activeHotspotKey={activeHotspotKey}
+                      highlightedHotspotKeys={highlightedHotspotKeys}
+                      onHotspotActivate={(tIdx, key) => {
+                        setActiveHotspotKey(key);
+                        if (tIdx != null) scrollToTransition(tIdx);
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">플로 캔버스</CardTitle>
+                  <CardDescription className="text-xs">
+                    전환 엣지 색은 마찰 체감 점수에 따른 신호등입니다.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="rounded-lg border border-border bg-card/50 p-2">
+                  <FlowInsightCanvas flow={displayFlow} />
+                </CardContent>
+              </Card>
+
+              {flowStepContextThumbs.length > 1 && (
+                <FlowStepContextBar
+                  className="sticky top-2 z-10"
+                  steps={flowStepContextThumbs}
+                  activeStepIndex={flowContextStepIndex}
+                  onSelectStep={setFlowContextStepIndex}
+                />
+              )}
+
+              <LayeredAuditDashboard
+                resetKey={
+                  displayFlow.ux_analysis_run_id ??
+                  displayFlow.ux_project_id ??
+                  displayFlow.ux_flow_title
+                }
+                title={displayFlow.ux_flow_title}
+                subtitle={
+                  [
+                    displayFlow.ux_project_id
+                      ? `project_id: ${displayFlow.ux_project_id}`
+                      : null,
+                    flowContextStepIndex != null
+                      ? `컨텍스트: 화면 #${flowContextStepIndex}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || undefined
+                }
+                layers={displayFlow.ux_audit_layers}
+                layerTabLabels={{
+                  screen: "화면별 (Layer 1)",
+                  flow: "플로우간 전환 (Layer 2)",
+                  system: "전체 전략 (Layer 3)",
+                }}
+                onLayersChange={(next) => {
+                  setWorkingFlow((prev) => {
+                    const base = prev ?? displayFlow;
+                    return { ...base, ux_audit_layers: next };
+                  });
+                }}
+                screenStepSync={
+                  flowStepContextThumbs.length > 0
+                    ? {
+                        maxStepIndex: flowStepContextThumbs.length - 1,
+                        activeStepIndex: flowContextStepIndex,
+                        onActiveStepIndexChange: setFlowContextStepIndex,
+                      }
+                    : undefined
+                }
+              />
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">단계 요약 (원본)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ol className="space-y-2">
+                    {displayFlow.ux_steps.map((s) => (
+                      <li
+                        key={s.ux_step_index}
+                        className="flex gap-3 text-sm"
+                      >
+                        <span className="font-mono text-muted-foreground">
+                          {s.ux_step_index}
+                        </span>
+                        <div>
+                          <p className="font-medium">{s.ux_step_label}</p>
+                          <p className="text-muted-foreground">
+                            {s.ux_one_line_summary}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </CardContent>
+              </Card>
+            </div>
+          </details>
         </div>
       )}
     </div>

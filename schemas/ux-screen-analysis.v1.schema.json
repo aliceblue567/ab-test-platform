@@ -94,7 +94,47 @@
           "ux_evidence": {
             "type": "string",
             "description": "스크린 상 인용·영역 설명 등"
+          },
+          "ux_pin_x_pct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "핀 X(좌 0 · 우 100), 화면 박스 기준 %"
+          },
+          "ux_pin_y_pct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "핀 Y(상 0 · 하 100)"
+          },
+          "ux_issue_as_is": {
+            "type": "string",
+            "description": "현재 상태(As-Is) 한두 문장"
+          },
+          "ux_theory_explained": {
+            "type": "string",
+            "description": "적용 UX 이론을 코드 없이 서술 (예: 히크의 법칙…)"
+          },
+          "ux_to_be_hint": {
+            "type": "string",
+            "description": "목표 상태(To-Be) 개선 방향 한두 문장"
           }
+        }
+      }
+    },
+    "ux_good_practices": {
+      "type": "array",
+      "description": "잘된 점 (녹색 핀). 각 항목에 좌표 필수.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ux_good_summary", "ux_pin_x_pct", "ux_pin_y_pct"],
+        "properties": {
+          "ux_good_id": { "type": "string" },
+          "ux_good_summary": { "type": "string", "minLength": 1 },
+          "ux_good_detail": { "type": "string" },
+          "ux_pin_x_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+          "ux_pin_y_pct": { "type": "number", "minimum": 0, "maximum": 100 }
         }
       }
     },
@@ -150,6 +190,11 @@
           }
         }
       }
+    },
+    "ux_audit_layers": {
+      "type": "object",
+      "description": "선택. 3계층 UX 감사(화면·플로·전체) 문제/개선 분리",
+      "additionalProperties": true
     }
   }
 }

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { UxAuditLayers } from "@/lib/ux-insight/layered-audit-v1";
+
 export const UX_FLOW_SCHEMA_VERSION = "1.0.0" as const;
 
 /** LLM·클라이언트 입력 모두 흡수 */
@@ -74,12 +76,17 @@ export const uxFlowAnalysisV1Z = z.object({
   ux_flow_hotspots: z.array(uxFlowHotspotZ).optional(),
 });
 
-export type UxFlowAnalysisV1 = z.infer<typeof uxFlowAnalysisV1Z>;
+export type UxFlowAnalysisV1 = z.infer<typeof uxFlowAnalysisV1Z> & {
+  ux_audit_layers?: UxAuditLayers;
+};
+export type UxFlowAnalysisCoreV1 = z.infer<typeof uxFlowAnalysisV1Z>;
 export type UxFlowHotspotV1 = z.infer<typeof uxFlowHotspotZ>;
 
 export function parseUxFlowAnalysisV1(
   raw: unknown
-): { ok: true; data: UxFlowAnalysisV1 } | { ok: false; error: z.ZodError } {
+):
+  | { ok: true; data: UxFlowAnalysisCoreV1 }
+  | { ok: false; error: z.ZodError } {
   const r = uxFlowAnalysisV1Z.safeParse(raw);
   if (r.success) return { ok: true, data: r.data };
   return { ok: false, error: r.error };

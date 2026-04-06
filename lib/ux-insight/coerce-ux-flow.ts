@@ -19,6 +19,8 @@ export function coerceUxFlowRaw(
     throw new Error("Invalid model JSON output");
   }
 
+  const outerAuditLayers = root["ux_audit_layers"];
+
   const unwrapKeys = ["analysis", "data", "result", "flow", "ux_flow", "output"];
   for (const k of unwrapKeys) {
     const inner = root[k];
@@ -30,6 +32,9 @@ export function coerceUxFlowRaw(
       const inn = inner as Record<string, unknown>;
       if ("ux_steps" in inn || "ux_transitions" in inn) {
         root = { ...inn };
+        if (root["ux_audit_layers"] === undefined && outerAuditLayers !== undefined) {
+          root["ux_audit_layers"] = outerAuditLayers;
+        }
         break;
       }
     }

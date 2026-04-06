@@ -13,6 +13,10 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import type { UxFlowAnalysisV1 } from "@/lib/ux-insight/flow-analysis-v1";
+import {
+  friction5ToDisplay10,
+  friction5ToTier,
+} from "@/lib/ux-insight/flow-friction-visual";
 
 type Props = { flow: UxFlowAnalysisV1; className?: string };
 
@@ -36,34 +40,33 @@ export function FlowInsightCanvas({ flow, className }: Props) {
     }));
 
     const edges: Edge[] = flow.ux_transitions.map((t, i) => {
-      const critical = t.ux_friction_score >= 4;
-      const severe = t.ux_friction_score >= 5;
+      const tier = friction5ToTier(t.ux_friction_score);
+      const d10 = friction5ToDisplay10(t.ux_friction_score);
+      const stroke =
+        tier === "red"
+          ? "#dc2626"
+          : tier === "yellow"
+            ? "#ca8a04"
+            : "#16a34a";
+      const animated = tier !== "green";
       return {
         id: `e-${t.ux_from_step}-${t.ux_to_step}-${i}`,
         source: `s-${t.ux_from_step}`,
         target: `s-${t.ux_to_step}`,
-        label: `${t.ux_friction_score}/5`,
-        animated: critical,
+        label: `${d10}/10`,
+        animated,
         style: {
-          stroke: severe
-            ? "#dc2626"
-            : critical
-              ? "#ea580c"
-              : "hsl(var(--muted-foreground))",
-          strokeWidth: severe ? 3 : critical ? 2.5 : 1.5,
+          stroke,
+          strokeWidth: tier === "red" ? 3 : tier === "yellow" ? 2.5 : 1.5,
         },
         labelStyle: {
           fontSize: 11,
           fontWeight: 700,
-          fill: severe ? "#dc2626" : critical ? "#c2410c" : undefined,
+          fill: stroke,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: severe
-            ? "#dc2626"
-            : critical
-              ? "#ea580c"
-              : "hsl(var(--muted-foreground))",
+          color: stroke,
         },
       };
     });

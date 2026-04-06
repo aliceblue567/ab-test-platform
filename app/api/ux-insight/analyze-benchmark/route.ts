@@ -17,19 +17,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
   }
 
-  const ours = formData.get("image_ours");
-  const competitor = formData.get("image_competitor");
-  if (!(ours instanceof File) || ours.size === 0) {
+  const countRaw = formData.get("variant_count");
+  const count = Number(countRaw);
+  if (!Number.isFinite(count) || count < 2 || count > 8) {
     return NextResponse.json(
-      { error: "자사 화면 이미지(image_ours)가 필요합니다." },
+      { error: "variant_count는 2~8 사이여야 합니다." },
       { status: 400 }
     );
   }
-  if (!(competitor instanceof File) || competitor.size === 0) {
-    return NextResponse.json(
-      { error: "타사 화면 이미지(image_competitor)가 필요합니다." },
-      { status: 400 }
-    );
+
+  const variants: { label: string; base64: string; mediaType: string }[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const file = formData.get(`image_${i}`);
+    const labelRaw = formData.get(`label_${i}`);
+    const label =
+      typeof labelRaw === "string" && labelRaw.trim()
+        ? labelRaw.trim()
+        : `화면 ${i + 1}`;
+
+    if (!(file instanceof File) || file.size === 0) {
+      return NextResponse.json(
+        { error: `image_${i} 파일이 비어 있거나 없습니다.` },
+        { status: 400 }
+      );
+    }
+
+    const buf = Buffer.from(await file.arrayBuffer());
+    variants.push({
+      label,
+      base64: buf.toString("base64"),
+      mediaType: file.type || "image/png",
+    });
   }
 
   const personaAge = String(formData.get("persona_age") ?? "").trim();
@@ -46,17 +65,11 @@ export async function POST(req: Request) {
 
   const context =
     String(formData.get("comparison_context") ?? "").trim() ||
-    "동일 과업(예: 항공 검색 결과) 화면 비교";
-
-  const bufO = Buffer.from(await ours.arrayBuffer());
-  const bufC = Buffer.from(await competitor.arrayBuffer());
+    "동일 과업 기준 멀티 화면 비교";
 
   try {
     const result = await runGeminiBenchmarkAnalysis({
-      oursBase64: bufO.toString("base64"),
-      oursMediaType: ours.type || "image/png",
-      competitorBase64: bufC.toString("base64"),
-      competitorMediaType: competitor.type || "image/png",
+      variants,
       personaAge,
       personaProficiency,
       personaGoal,
