@@ -1,4 +1,5 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import authConfig from "@/lib/auth.config";
 import { NextResponse } from "next/server";
 import {
   verifyAdminGateToken,
@@ -26,6 +27,8 @@ function matchesPublic(pathname: string, prefixes: readonly string[]): boolean {
  *
  * /admin (A/B·UX 라이팅) 과 /insight (UX 인사이트 랩) 은 별도 제품이지만 동일 보안 정책을 적용한다.
  */
+const { auth } = NextAuth(authConfig);
+
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
   const gatedPrefix = getInternalGatePrefix(pathname);
