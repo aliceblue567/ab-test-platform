@@ -85,6 +85,14 @@ function buildCrumbs(pathname: string, mode: "admin" | "workspace"): Crumb[] {
     ];
   }
 
+  if (p === `${L.experiments}/urls`) {
+    return [
+      root,
+      { label: "실험", href: L.experiments },
+      { label: "참여 URL 관리", href: p },
+    ];
+  }
+
   const adminExpDetail = /^\/admin\/experiments\/([^/]+)$/.exec(p);
   if (adminExpDetail?.[1] && adminExpDetail[1] !== "new") {
     return [
@@ -121,6 +129,13 @@ function buildCrumbs(pathname: string, mode: "admin" | "workspace"): Crumb[] {
         root,
         { label: "실험", href: L.experiments },
         { label: "실험 목록", href: L.experiments },
+      ];
+    }
+    if (p === "/workspace/experiments/urls") {
+      return [
+        root,
+        { label: "실험", href: L.experiments },
+        { label: "참여 URL 관리", href: p },
       ];
     }
     if (p.startsWith("/workspace/insight-saved")) {

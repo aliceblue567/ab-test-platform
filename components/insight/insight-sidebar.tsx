@@ -1,27 +1,35 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import {
-  ArrowLeft,
-  ImageIcon,
-  GitCompareArrows,
-  LayoutList,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import {
   getPlatformLinks,
   resolvePlatformModeForNav,
 } from "@/lib/platform-routes";
+import { getInsightLabSidebarItems } from "@/components/admin/admin-sidebar-config";
+import { SidebarNavLink } from "@/components/platform/sidebar-nav-link";
 
-const navItems = [
-  { href: "/insight", label: "개요", icon: Sparkles, exact: true },
-  { href: "/insight/screens", label: "화면 분석", icon: ImageIcon },
-  { href: "/insight/flows", label: "플로우", icon: LayoutList },
-  { href: "/insight/benchmark", label: "벤치마킹", icon: GitCompareArrows },
-];
+function InsightSidebarLinks() {
+  const items = getInsightLabSidebarItems();
+
+  return (
+    <div className="flex flex-1 flex-col gap-1 overflow-auto px-3 py-3">
+      {items.map((item) => (
+        <SidebarNavLink
+          key={`${item.href}-${item.label}`}
+          href={item.href}
+          label={item.label}
+          icon={item.icon}
+          clearQueryForActive={item.clearQueryForActive}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function InsightSidebar() {
   const pathname = usePathname() ?? "";
@@ -36,39 +44,23 @@ export function InsightSidebar() {
         <p className="text-xs font-semibold text-foreground/80">인사이트</p>
         <p className="text-[11px] text-muted-foreground">UX 인사이트 랩</p>
       </div>
-      <div className="flex flex-1 flex-col gap-1 overflow-auto px-3 py-3">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.exact
-            ? pathname === item.href
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {item.label}
-            </Link>
-          );
-        })}
-
-        <div className="mt-auto border-t border-border pt-4">
-          <Link
-            href={platformHome}
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <ArrowLeft className="h-5 w-5 shrink-0" />
-            플랫폼 홈
-          </Link>
-        </div>
+      <Suspense
+        fallback={
+          <p className="px-3 py-3 text-sm text-muted-foreground">메뉴 로딩…</p>
+        }
+      >
+        <InsightSidebarLinks />
+      </Suspense>
+      <div className="mt-auto border-t border-border px-3 py-3">
+        <Link
+          href={platformHome}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          )}
+        >
+          <ArrowLeft className="h-5 w-5 shrink-0" />
+          플랫폼 홈
+        </Link>
       </div>
     </aside>
   );

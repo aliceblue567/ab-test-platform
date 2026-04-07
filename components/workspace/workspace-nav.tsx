@@ -1,125 +1,74 @@
 "use client";
 
-import type { ComponentType } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Suspense } from "react";
+import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
+import { LogOut } from "lucide-react";
 import {
-  FlaskConical,
-  LayoutList,
-  BookOpen,
-  Sparkles,
-  FolderOpen,
-  PenLine,
-  LayoutDashboard,
-  Settings,
-} from "lucide-react";
+  resolveActiveSidebarSection,
+  SIDEBAR_SECTION_LABEL,
+} from "@/lib/platform-sidebar";
+import { getWorkspaceSidebarItems } from "@/components/admin/admin-sidebar-config";
+import { SidebarNavLink } from "@/components/platform/sidebar-nav-link";
 
-const hubItems = [
-  { href: "/workspace/dashboard", label: "워크스페이스 홈", icon: LayoutDashboard },
-] as const;
+function WorkspaceNavLinks() {
+  const pathname = usePathname() ?? "";
+  const section = resolveActiveSidebarSection(pathname, "workspace");
+  const { items } = getWorkspaceSidebarItems(section);
+  const title = SIDEBAR_SECTION_LABEL[section];
 
-const experimentItems = [
-  { href: "/workspace/experiments", label: "실험 목록", icon: LayoutList },
-  { href: "/workspace/planner", label: "A/B 테스트", icon: FlaskConical },
-] as const;
-
-const writingItems = [
-  { href: "/", label: "문구 검수", icon: PenLine },
-  { href: "/workspace/guidelines", label: "UX 가이드", icon: BookOpen },
-] as const;
-
-const insightItems = [
-  {
-    href: "/workspace/insight-saved",
-    label: "인사이트 저장함",
-    icon: FolderOpen,
-  },
-] as const;
-
-function NavLink({
-  href,
-  label,
-  icon: Icon,
-}: {
-  href: string;
-  label: string;
-  icon: ComponentType<{ className?: string }>;
-}) {
-  const pathname = usePathname();
-  const isActive =
-    href === "/"
-      ? pathname === "/"
-      : pathname === href ||
-        (href !== "/workspace" && pathname.startsWith(href));
+  if (items.length === 0) {
+    return (
+      <p className="px-3 pt-2 text-sm text-muted-foreground">
+        이 영역 메뉴가 없습니다. 상단에서 다른 메뉴를 선택해 주세요.
+      </p>
+    );
+  }
 
   return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        isActive
-          ? "bg-primary text-primary-foreground"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-      )}
-    >
-      <Icon className="h-5 w-5 shrink-0" />
-      {label}
-    </Link>
+    <>
+      <p className="px-3 pb-2 pt-2 text-xs font-semibold tracking-tight text-foreground/75">
+        {title}
+      </p>
+      <div className="flex flex-col gap-1">
+        {items.map((item) => (
+          <SidebarNavLink
+            key={`${item.href}-${item.label}`}
+            href={item.href}
+            label={item.label}
+            icon={item.icon}
+            clearQueryForActive={item.clearQueryForActive}
+          />
+        ))}
+        {section === "settings" && (
+          <button
+            type="button"
+            onClick={() => void signOut({ callbackUrl: "/workspace/login" })}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
+              "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            로그아웃
+          </button>
+        )}
+      </div>
+    </>
   );
 }
 
 export function WorkspaceNav() {
-  const pathname = usePathname();
-  const insightActive = pathname === "/insight" || pathname?.startsWith("/insight/");
-
   return (
-    <nav className="flex flex-1 flex-col gap-1">
-      <p className="px-3 pb-1 pt-2 text-xs font-semibold tracking-tight text-foreground/75">
-        대시보드
-      </p>
-      {hubItems.map((item) => (
-        <NavLink key={item.href} {...item} />
-      ))}
-      <p className="px-3 pb-1 pt-4 text-xs font-semibold tracking-tight text-foreground/75">
-        실험
-      </p>
-      {experimentItems.map((item) => (
-        <NavLink key={item.href} {...item} />
-      ))}
-      <p className="px-3 pb-1 pt-4 text-xs font-semibold tracking-tight text-foreground/75">
-        UX 라이팅
-      </p>
-      {writingItems.map((item) => (
-        <NavLink key={item.href} {...item} />
-      ))}
-      <p className="px-3 pb-1 pt-4 text-xs font-semibold tracking-tight text-foreground/75">
-        인사이트
-      </p>
-      {insightItems.map((item) => (
-        <NavLink key={item.href} {...item} />
-      ))}
-      <Link
-        href="/insight"
-        className={cn(
-          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-          insightActive
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-        )}
+    <nav className="flex flex-1 flex-col">
+      <Suspense
+        fallback={
+          <p className="px-3 py-4 text-sm text-muted-foreground">메뉴 로딩…</p>
+        }
       >
-        <Sparkles className="h-5 w-5 shrink-0" />
-        UX 인사이트 랩
-      </Link>
-
-      <p className="px-3 pb-1 pt-4 text-xs font-semibold tracking-tight text-foreground/75">
-        설정
-      </p>
-      <NavLink
-        href="/workspace/settings"
-        label="워크스페이스 설정"
-        icon={Settings}
-      />
+        <WorkspaceNavLinks />
+      </Suspense>
     </nav>
   );
 }

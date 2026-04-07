@@ -1,74 +1,18 @@
 "use client";
 
-import type { ComponentType } from "react";
+import { Suspense, type ComponentType } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import {
-  FlaskConical,
-  LayoutList,
-  BookOpen,
-  KeyRound,
-  LogIn,
-  Sparkles,
-  Users,
-  Shield,
-  PenLine,
-  LayoutDashboard,
-  Settings,
-  ClipboardList,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-
-const hubItems = [
-  { href: "/admin/dashboard", label: "대시보드", icon: LayoutDashboard },
-] as const;
-
-const experimentItems = [
-  { href: "/admin/experiments", label: "실험 목록", icon: LayoutList },
-  { href: "/admin/planner", label: "A/B 테스트", icon: FlaskConical },
-] as const;
-
-const writingItems = [
-  { href: "/admin/guidelines", label: "UX 가이드", icon: BookOpen },
-  { href: "/admin/api-keys", label: "API 키", icon: KeyRound },
-] as const;
-
-function sectionTitleClass(isFirst: boolean) {
-  return cn(
-    "px-3 pb-2 text-xs font-semibold tracking-tight text-foreground/75",
-    isFirst ? "pt-2" : "pt-5"
-  );
-}
-
-function NavLink({
-  href,
-  label,
-  icon: Icon,
-}: {
-  href: string;
-  label: string;
-  icon: ComponentType<{ className?: string }>;
-}) {
-  const pathname = usePathname();
-  const isActive =
-    pathname === href || (href !== "/admin" && pathname.startsWith(href));
-
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        isActive
-          ? "bg-primary text-primary-foreground"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-      )}
-    >
-      <Icon className="h-5 w-5 shrink-0" />
-      {label}
-    </Link>
-  );
-}
+import { LogIn, Shield, LogOut } from "lucide-react";
+import {
+  resolveActiveSidebarSection,
+  SIDEBAR_SECTION_LABEL,
+} from "@/lib/platform-sidebar";
+import { getAdminSidebarItems } from "@/components/admin/admin-sidebar-config";
+import { SidebarNavLink } from "@/components/platform/sidebar-nav-link";
 
 function SubtleLink({
   href,
@@ -90,103 +34,65 @@ function SubtleLink({
         <Icon className="h-5 w-5 shrink-0" />
         {label}
       </Link>
-      <p className="px-3 pb-1 text-[10px] leading-snug text-muted-foreground">{hint}</p>
+      <p className="px-3 pb-1 text-[10px] leading-snug text-muted-foreground">
+        {hint}
+      </p>
     </div>
   );
 }
 
+function AdminNavLinks() {
+  const pathname = usePathname() ?? "";
+  const section = resolveActiveSidebarSection(pathname, "admin");
+  const { items } = getAdminSidebarItems(section);
+  const title = SIDEBAR_SECTION_LABEL[section];
+
+  return (
+    <>
+      <p className="px-3 pb-2 text-xs font-semibold tracking-tight text-foreground/75 pt-2">
+        {title}
+      </p>
+      <div className="flex flex-col gap-1">
+        {items.map((item) => (
+          <SidebarNavLink
+            key={`${item.href}-${item.label}`}
+            href={item.href}
+            label={item.label}
+            icon={item.icon}
+            clearQueryForActive={item.clearQueryForActive}
+          />
+        ))}
+        {section === "settings" && (
+          <button
+            type="button"
+            onClick={() => void signOut({ callbackUrl: "/admin/login" })}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
+              "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            로그아웃
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
 export function AdminNav() {
-  const pathname = usePathname();
   const { status } = useSession();
-  const insightActive =
-    pathname === "/insight" || pathname.startsWith("/insight/");
-  const workspaceActive =
-    pathname === "/workspace" || pathname.startsWith("/workspace/");
 
   return (
     <nav className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-        <p className={sectionTitleClass(true)}>대시보드</p>
-        <div className="flex flex-col gap-1">
-          {hubItems.map((item) => (
-            <NavLink key={item.href} {...item} />
-          ))}
-        </div>
-
-        <p className={sectionTitleClass(false)}>실험</p>
-        <div className="flex flex-col gap-1">
-          {experimentItems.map((item) => (
-            <NavLink key={item.href} {...item} />
-          ))}
-        </div>
-
-        <p className={sectionTitleClass(false)}>UX 라이팅</p>
-        <div className="flex flex-col gap-1">
-          <Link
-            href="/"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              pathname === "/"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <PenLine className="h-5 w-5 shrink-0" />
-            문구 검수
-          </Link>
-          {writingItems.map((item) => (
-            <NavLink key={item.href} {...item} />
-          ))}
-        </div>
-
-        <p className={sectionTitleClass(false)}>인사이트</p>
-        <div className="flex flex-col gap-1">
-          <Link
-            href="/insight"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              insightActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <Sparkles className="h-5 w-5 shrink-0" />
-            UX 인사이트 랩
-          </Link>
-        </div>
-
-        <p className={sectionTitleClass(false)}>팀 워크스페이스</p>
-        <div className="flex flex-col gap-1">
-          <Link
-            href="/workspace/experiments"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              workspaceActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <Users className="h-5 w-5 shrink-0" />
-            팀 실험 · 저장함
-          </Link>
-          <p className="px-3 text-[10px] leading-snug text-muted-foreground">
-            초대 팀원 계정(관리자와 메뉴는 같고 데이터 범위만 다름)
-          </p>
-        </div>
-
-        <p className={sectionTitleClass(false)}>설정 · 운영</p>
-        <div className="flex flex-col gap-1">
-          <NavLink
-            href="/admin/settings"
-            label="조직 설정"
-            icon={Settings}
-          />
-          <NavLink
-            href="/admin/audit"
-            label="감사 로그"
-            icon={ClipboardList}
-          />
-        </div>
+        <Suspense
+          fallback={
+            <p className="px-3 text-sm text-muted-foreground">메뉴 로딩…</p>
+          }
+        >
+          <AdminNavLinks />
+        </Suspense>
       </div>
 
       {status !== "authenticated" && (

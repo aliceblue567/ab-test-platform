@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, FlaskConical, RefreshCw } from "lucide-react";
@@ -26,6 +26,10 @@ type ErrorType = "unauthorized" | "server" | "network";
 export function ExperimentsListPage() {
   const base = useWorkspaceBasePath();
   const pathname = usePathname() ?? `${base}/experiments`;
+  const searchParams = useSearchParams();
+  const statusFilter = searchParams.get("status");
+  const viewFilter = searchParams.get("view");
+  const phaseFilter = searchParams.get("phase");
   const loginHref = `${base === "/workspace" ? "/workspace/login" : "/admin/login"}?callbackUrl=${encodeURIComponent(pathname)}`;
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,10 +70,35 @@ export function ExperimentsListPage() {
     fetchExperiments();
   }, [fetchExperiments]);
 
+  const filtered = useMemo(() => {
+    let list = experiments;
+    if (statusFilter === "completed") {
+      list = list.filter((e) => e.status === "completed");
+    }
+    if (viewFilter === "results") {
+      list = list.filter((e) =>
+        ["running", "paused", "completed"].includes(e.status)
+      );
+    }
+    if (phaseFilter === "draft") {
+      list = list.filter((e) => e.status === "draft");
+    }
+    return list;
+  }, [experiments, statusFilter, viewFilter, phaseFilter]);
+
+  const pageTitle =
+    statusFilter === "completed"
+      ? "보관된 실험"
+      : viewFilter === "results"
+        ? "결과 보기"
+        : phaseFilter === "draft"
+          ? "플래너 (초안)"
+          : "실험 목록";
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">실험 목록</h1>
+        <h1 className="text-2xl font-bold">{pageTitle}</h1>
         <Button asChild>
           <Link href={`${base}/planner`}>
             <Plus className="h-4 w-4" />
@@ -104,6 +133,19 @@ export function ExperimentsListPage() {
         </Card>
       )}
 
+      {!loading && !error && experiments.length > 0 && filtered.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-muted-foreground">
+              이 조건에 맞는 실험이 없습니다.
+            </p>
+            <Button variant="link" asChild className="mt-2">
+              <Link href={`${base}/experiments`}>전체 목록 보기</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {!loading && !error && experiments.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-20">
@@ -124,9 +166,9 @@ export function ExperimentsListPage() {
         </Card>
       )}
 
-      {!loading && !error && experiments.length > 0 && (
+      {!loading && !error && filtered.length > 0 && (
         <div className="space-y-4">
-          {experiments.map((exp) => (
+          {filtered.map((exp) => (
             <Card key={exp.id} className="transition-colors hover:border-primary/50">
               <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                 <div>

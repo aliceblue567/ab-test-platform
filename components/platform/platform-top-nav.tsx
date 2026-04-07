@@ -50,6 +50,8 @@ function navActive(
     if (pathname === links.writingCheck || pathname === links.writingGuide)
       return true;
     if (links.apiKeys && pathname.startsWith(links.apiKeys)) return true;
+    if (pathname.startsWith("/admin/writing/")) return true;
+    if (pathname.startsWith("/workspace/writing/")) return true;
     return false;
   }
   if (key === "team") {
