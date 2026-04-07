@@ -7,7 +7,7 @@ export default function AdminLoginPage() {
     <CredentialsLoginForm
       variant="admin"
       signupEnabled={signupEnabled}
-      defaultCallbackUrl="/admin/experiments"
+      defaultCallbackUrl="/admin/dashboard"
       showDiagnose
     />
   );

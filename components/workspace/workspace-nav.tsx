@@ -10,15 +10,21 @@ import {
   BookOpen,
   Sparkles,
   FolderOpen,
-  ExternalLink,
+  PenLine,
+  LayoutDashboard,
 } from "lucide-react";
+
+const hubItems = [
+  { href: "/workspace/dashboard", label: "워크스페이스 홈", icon: LayoutDashboard },
+] as const;
 
 const experimentItems = [
   { href: "/workspace/experiments", label: "실험 목록", icon: LayoutList },
-  { href: "/workspace/planner", label: "플래너", icon: FlaskConical },
+  { href: "/workspace/planner", label: "A/B 테스트", icon: FlaskConical },
 ] as const;
 
 const writingItems = [
+  { href: "/", label: "문구 검수", icon: PenLine },
   { href: "/workspace/guidelines", label: "UX 가이드", icon: BookOpen },
 ] as const;
 
@@ -41,7 +47,10 @@ function NavLink({
 }) {
   const pathname = usePathname();
   const isActive =
-    pathname === href || (href !== "/workspace" && pathname.startsWith(href));
+    href === "/"
+      ? pathname === "/"
+      : pathname === href ||
+        (href !== "/workspace" && pathname.startsWith(href));
 
   return (
     <Link
@@ -65,19 +74,25 @@ export function WorkspaceNav() {
 
   return (
     <nav className="flex flex-1 flex-col gap-1">
-      <p className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        내 작업 · A/B 테스트
+      <p className="px-3 pb-1 pt-2 text-xs font-semibold tracking-tight text-foreground/75">
+        시작
+      </p>
+      {hubItems.map((item) => (
+        <NavLink key={item.href} {...item} />
+      ))}
+      <p className="px-3 pb-1 pt-4 text-xs font-semibold tracking-tight text-foreground/75">
+        실험
       </p>
       {experimentItems.map((item) => (
         <NavLink key={item.href} {...item} />
       ))}
-      <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="px-3 pb-1 pt-4 text-xs font-semibold tracking-tight text-foreground/75">
         UX 라이팅
       </p>
       {writingItems.map((item) => (
         <NavLink key={item.href} {...item} />
       ))}
-      <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="px-3 pb-1 pt-4 text-xs font-semibold tracking-tight text-foreground/75">
         인사이트
       </p>
       {insightItems.map((item) => (
@@ -93,8 +108,7 @@ export function WorkspaceNav() {
         )}
       >
         <Sparkles className="h-5 w-5 shrink-0" />
-        인사이트 Lab
-        <ExternalLink className="h-3.5 w-3.5 ml-auto opacity-60" />
+        UX 인사이트 랩
       </Link>
     </nav>
   );

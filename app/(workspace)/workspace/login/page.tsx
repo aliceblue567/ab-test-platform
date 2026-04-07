@@ -7,7 +7,7 @@ export default function WorkspaceLoginPage() {
     <CredentialsLoginForm
       variant="workspace"
       signupEnabled={signupEnabled}
-      defaultCallbackUrl="/workspace/experiments"
+      defaultCallbackUrl="/workspace/dashboard"
       showDiagnose={false}
     />
   );

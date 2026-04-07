@@ -13,11 +13,18 @@ import {
   Sparkles,
   Users,
   Shield,
+  PenLine,
+  LayoutDashboard,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
+
+const hubItems = [
+  { href: "/admin/dashboard", label: "대시보드", icon: LayoutDashboard },
+] as const;
 
 const experimentItems = [
   { href: "/admin/experiments", label: "실험 목록", icon: LayoutList },
-  { href: "/admin/planner", label: "플래너", icon: FlaskConical },
+  { href: "/admin/planner", label: "A/B 테스트", icon: FlaskConical },
 ] as const;
 
 const writingItems = [
@@ -88,6 +95,7 @@ function SubtleLink({
 
 export function AdminNav() {
   const pathname = usePathname();
+  const { status } = useSession();
   const insightActive =
     pathname === "/insight" || pathname.startsWith("/insight/");
   const workspaceActive =
@@ -96,7 +104,14 @@ export function AdminNav() {
   return (
     <nav className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-        <p className={sectionTitleClass(true)}>실험</p>
+        <p className={sectionTitleClass(true)}>시작</p>
+        <div className="flex flex-col gap-1">
+          {hubItems.map((item) => (
+            <NavLink key={item.href} {...item} />
+          ))}
+        </div>
+
+        <p className={sectionTitleClass(false)}>실험</p>
         <div className="flex flex-col gap-1">
           {experimentItems.map((item) => (
             <NavLink key={item.href} {...item} />
@@ -105,6 +120,18 @@ export function AdminNav() {
 
         <p className={sectionTitleClass(false)}>UX 라이팅</p>
         <div className="flex flex-col gap-1">
+          <Link
+            href="/"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              pathname === "/"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <PenLine className="h-5 w-5 shrink-0" />
+            문구 검수
+          </Link>
           {writingItems.map((item) => (
             <NavLink key={item.href} {...item} />
           ))}
@@ -146,23 +173,25 @@ export function AdminNav() {
         </div>
       </div>
 
-      <div className="shrink-0 space-y-1 border-t border-border bg-card px-3 py-3">
-        <p className="px-3 pb-1 text-xs font-semibold text-foreground/75">
-          로그인
-        </p>
-        <SubtleLink
-          href="/admin/login"
-          label="관리자"
-          hint="전체 실험 · API 키 · 조직 설정"
-          icon={Shield}
-        />
-        <SubtleLink
-          href="/workspace/login"
-          label="팀 워크스페이스"
-          hint="초대받은 이메일·비밀번호"
-          icon={LogIn}
-        />
-      </div>
+      {status !== "authenticated" && (
+        <div className="shrink-0 space-y-1 border-t border-border bg-card px-3 py-3">
+          <p className="px-3 pb-1 text-xs font-semibold text-foreground/75">
+            로그인
+          </p>
+          <SubtleLink
+            href="/admin/login"
+            label="관리자"
+            hint="전체 실험 · API 키 · 조직 설정"
+            icon={Shield}
+          />
+          <SubtleLink
+            href="/workspace/login"
+            label="팀 워크스페이스"
+            hint="초대받은 이메일·비밀번호"
+            icon={LogIn}
+          />
+        </div>
+      )}
     </nav>
   );
 }

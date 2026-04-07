@@ -11,8 +11,10 @@ import { ConversionComparisonChart } from "./conversion-comparison-chart";
 import { FunnelComparisonChart } from "./funnel-comparison-chart";
 import { ReportDecisionNote } from "./report-decision-note";
 import type { ReportApiResponse } from "@/types/report";
+import { useWorkspaceBasePath } from "@/components/workspace/workspace-base-context";
 
 export function ReportDashboard({ experimentId }: { experimentId: string }) {
+  const base = useWorkspaceBasePath();
   const [data, setData] = useState<ReportApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,9 @@ export function ReportDashboard({ experimentId }: { experimentId: string }) {
           {error}
         </div>
         <Button variant="outline" className="mt-4" asChild>
-          <Link href={`/admin/planner/${experimentId}`}>플래너로 돌아가기</Link>
+          <Link href={`${base}/planner/${experimentId}`}>
+            A/B 테스트로 돌아가기
+          </Link>
         </Button>
       </div>
     );
@@ -56,7 +60,7 @@ export function ReportDashboard({ experimentId }: { experimentId: string }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href={`/admin/planner/${experimentId}`}>
+            <Link href={`${base}/planner/${experimentId}`}>
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>

@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (doLogin) {
-      const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
+      const callbackUrl = String(body?.callbackUrl ?? "/admin/dashboard");
       const user = await getOrCreateCredentialsUser(
         result.email,
         !result.dbPasswordMatch

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function WorkspaceHomePage() {
-  redirect("/workspace/experiments");
+  redirect("/workspace/dashboard");
 }

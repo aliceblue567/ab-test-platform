@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") ?? "";
     const body = await parseRequestBody(req, contentType);
-    const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
+    const callbackUrl = String(body?.callbackUrl ?? "/admin/dashboard");
     const loginPath = loginPagePathForCallback(callbackUrl);
     const result = await verifyLoginCredentials(body);
 

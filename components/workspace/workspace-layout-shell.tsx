@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 import { WorkspaceBaseProvider } from "@/components/workspace/workspace-base-context";
+import { PlatformTopNav } from "@/components/platform/platform-top-nav";
+import { PlatformBreadcrumb } from "@/components/platform/platform-breadcrumb";
 
 export function WorkspaceLayoutShell({
   children,
@@ -27,8 +29,14 @@ export function WorkspaceLayoutShell({
   return (
     <WorkspaceBaseProvider basePath="/workspace">
       <div className="min-h-screen bg-background text-foreground">
-        <WorkspaceSidebar />
-        <main className="pl-56">{children}</main>
+        <PlatformTopNav area="workspace" />
+        <div className="flex pt-14">
+          <WorkspaceSidebar />
+          <main className="ml-56 min-h-[calc(100vh-3.5rem)] min-w-0 flex-1">
+            <PlatformBreadcrumb />
+            {children}
+          </main>
+        </div>
       </div>
     </WorkspaceBaseProvider>
   );

@@ -235,7 +235,7 @@ function LoginFormInner({
               </Link>
             ) : (
               <Link
-                href={`/workspace/login?callbackUrl=${encodeURIComponent("/workspace/experiments")}`}
+                href={`/workspace/login?callbackUrl=${encodeURIComponent("/workspace/dashboard")}`}
                 className="text-muted-foreground hover:underline"
               >
                 팀원 · 워크스페이스 로그인 →
