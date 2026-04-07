@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { GuidelinesCsvUpload } from "@/components/admin/guidelines/guidelines-csv-upload";
+import { usePathname } from "next/navigation";
+import { useWorkspaceBasePath } from "@/components/workspace/workspace-base-context";
 
 export type Guideline = {
   id: string;
@@ -100,6 +102,9 @@ async function readApiErrorMessage(res: Response): Promise<string> {
 }
 
 export function GuidelinesDashboard() {
+  const workspaceBase = useWorkspaceBasePath();
+  const pathname = usePathname() ?? workspaceBase + "/guidelines";
+  const loginHref = `${workspaceBase === "/workspace" ? "/workspace/login" : "/admin/login"}?callbackUrl=${encodeURIComponent(pathname)}`;
   const [rows, setRows] = useState<Guideline[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -359,7 +364,7 @@ export function GuidelinesDashboard() {
                 <>
                   {" "}
                   <Link
-                    href="/admin/login"
+                    href={loginHref}
                     className="font-medium underline underline-offset-2"
                   >
                     로그인하기

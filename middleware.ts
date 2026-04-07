@@ -95,7 +95,7 @@ export default auth(async (req) => {
       !matchesPublic(pathname, AUTH_PUBLIC_PATHS)
     ) {
       return NextResponse.redirect(
-        new URL("/workspace/experiments", req.nextUrl.origin)
+        new URL("/workspace/dashboard", req.nextUrl.origin)
       );
     }
   }

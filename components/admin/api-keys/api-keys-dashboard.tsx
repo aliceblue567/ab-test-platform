@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Copy, KeyRound, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,8 @@ type ApiKeyRow = {
 };
 
 export function ApiKeysDashboard() {
+  const pathname = usePathname() ?? "/admin/api-keys";
+  const loginHref = `/admin/login?callbackUrl=${encodeURIComponent(pathname)}`;
   const [rows, setRows] = useState<ApiKeyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -195,7 +198,7 @@ export function ApiKeysDashboard() {
         <p className="text-sm text-destructive" role="alert">
           {error}{" "}
           {error.includes("로그인") ? (
-            <Link href="/admin/login" className="underline font-medium">
+            <Link href={loginHref} className="underline font-medium">
               로그인하기
             </Link>
           ) : null}

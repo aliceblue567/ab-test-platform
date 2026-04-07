@@ -93,7 +93,7 @@ function buildCrumbs(pathname: string, mode: "admin" | "workspace"): Crumb[] {
   if (p.startsWith("/workspace")) {
     if (p.startsWith("/workspace/login")) return [];
     if (p === "/workspace/dashboard" || p === "/workspace") {
-      return [root, { label: "워크스페이스", href: L.dashboard }];
+      return [root];
     }
     if (p === "/workspace/experiments") {
       return [

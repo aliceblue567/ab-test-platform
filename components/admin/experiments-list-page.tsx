@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, FlaskConical, RefreshCw } from "lucide-react";
@@ -24,6 +25,8 @@ type ErrorType = "unauthorized" | "server" | "network";
 
 export function ExperimentsListPage() {
   const base = useWorkspaceBasePath();
+  const pathname = usePathname() ?? `${base}/experiments`;
+  const loginHref = `${base === "/workspace" ? "/workspace/login" : "/admin/login"}?callbackUrl=${encodeURIComponent(pathname)}`;
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ type: ErrorType; message: string } | null>(null);
@@ -94,7 +97,7 @@ export function ExperimentsListPage() {
             )}
             {error.type === "unauthorized" && (
               <Button asChild className="mt-2">
-                <Link href="/api/auth/signin">로그인</Link>
+                <Link href={loginHref}>로그인</Link>
               </Button>
             )}
           </CardContent>

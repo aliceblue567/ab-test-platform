@@ -116,7 +116,9 @@ export function ExperimentCreateForm() {
                 </ul>
                 <p className="mt-2">해결 방법: 먼저 로그인한 후 다시 시도해주세요.</p>
                 <Button asChild variant="outline" size="sm" className="mt-2">
-                  <a href={`/admin/login?callbackUrl=${encodeURIComponent(`${base}/planner`)}`}>
+                  <a
+                    href={`${base === "/workspace" ? "/workspace/login" : "/admin/login"}?callbackUrl=${encodeURIComponent(`${base}/planner`)}`}
+                  >
                     로그인하기
                   </a>
                 </Button>
