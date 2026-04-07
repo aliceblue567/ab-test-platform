@@ -12,6 +12,7 @@ import {
   FolderOpen,
   PenLine,
   LayoutDashboard,
+  Settings,
 } from "lucide-react";
 
 const hubItems = [
@@ -75,7 +76,7 @@ export function WorkspaceNav() {
   return (
     <nav className="flex flex-1 flex-col gap-1">
       <p className="px-3 pb-1 pt-2 text-xs font-semibold tracking-tight text-foreground/75">
-        시작
+        대시보드
       </p>
       {hubItems.map((item) => (
         <NavLink key={item.href} {...item} />
@@ -110,6 +111,15 @@ export function WorkspaceNav() {
         <Sparkles className="h-5 w-5 shrink-0" />
         UX 인사이트 랩
       </Link>
+
+      <p className="px-3 pb-1 pt-4 text-xs font-semibold tracking-tight text-foreground/75">
+        설정
+      </p>
+      <NavLink
+        href="/workspace/settings"
+        label="워크스페이스 설정"
+        icon={Settings}
+      />
     </nav>
   );
 }

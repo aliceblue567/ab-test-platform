@@ -20,7 +20,7 @@ function buildCrumbs(pathname: string, mode: "admin" | "workspace"): Crumb[] {
   if (p === "/") {
     return [
       root,
-      { label: "라이팅", href: L.writingGuide },
+      { label: "UX 라이팅", href: L.writingGuide },
       { label: "문구 검수", href: "/" },
     ];
   }
@@ -56,7 +56,7 @@ function buildCrumbs(pathname: string, mode: "admin" | "workspace"): Crumb[] {
   if (p === L.writingGuide || p.startsWith(`${L.writingGuide}/`)) {
     return [
       root,
-      { label: "라이팅", href: L.writingGuide },
+      { label: "UX 라이팅", href: L.writingGuide },
       { label: "UX 가이드", href: L.writingGuide },
     ];
   }
@@ -64,7 +64,7 @@ function buildCrumbs(pathname: string, mode: "admin" | "workspace"): Crumb[] {
   if (L.apiKeys && (p === L.apiKeys || p.startsWith(`${L.apiKeys}/`))) {
     return [
       root,
-      { label: "라이팅", href: L.writingGuide },
+      { label: "UX 라이팅", href: L.writingGuide },
       { label: "API 키", href: L.apiKeys },
     ];
   }
@@ -105,7 +105,7 @@ function buildCrumbs(pathname: string, mode: "admin" | "workspace"): Crumb[] {
     if (p.startsWith("/workspace/insight-saved")) {
       return [
         root,
-        { label: "분석", href: "/insight" },
+        { label: "인사이트", href: "/insight" },
         { label: "인사이트 저장함", href: p },
       ];
     }

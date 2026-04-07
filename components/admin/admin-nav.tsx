@@ -15,6 +15,7 @@ import {
   Shield,
   PenLine,
   LayoutDashboard,
+  Settings,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -104,7 +105,7 @@ export function AdminNav() {
   return (
     <nav className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-        <p className={sectionTitleClass(true)}>시작</p>
+        <p className={sectionTitleClass(true)}>대시보드</p>
         <div className="flex flex-col gap-1">
           {hubItems.map((item) => (
             <NavLink key={item.href} {...item} />
@@ -137,7 +138,7 @@ export function AdminNav() {
           ))}
         </div>
 
-        <p className={sectionTitleClass(false)}>인사이트 랩</p>
+        <p className={sectionTitleClass(false)}>인사이트</p>
         <div className="flex flex-col gap-1">
           <Link
             href="/insight"
@@ -170,6 +171,15 @@ export function AdminNav() {
           <p className="px-3 text-[10px] leading-snug text-muted-foreground">
             초대 팀원 계정(관리자와 메뉴는 같고 데이터 범위만 다름)
           </p>
+        </div>
+
+        <p className={sectionTitleClass(false)}>설정</p>
+        <div className="flex flex-col gap-1">
+          <NavLink
+            href="/admin/settings"
+            label="조직 설정"
+            icon={Settings}
+          />
         </div>
       </div>
 

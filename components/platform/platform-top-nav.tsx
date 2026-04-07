@@ -41,7 +41,11 @@ function navActive(
     );
   }
   if (key === "analysis") {
-    return pathname === "/insight" || pathname.startsWith("/insight/");
+    return (
+      pathname === "/insight" ||
+      pathname.startsWith("/insight/") ||
+      pathname.startsWith("/workspace/insight-saved")
+    );
   }
   if (key === "writing") {
     if (pathname === links.writingCheck || pathname === links.writingGuide)
@@ -52,10 +56,7 @@ function navActive(
   if (key === "team") {
     if (pathname.startsWith("/workspace/login")) return false;
     if (mode === "workspace") {
-      return (
-        pathname === links.team ||
-        pathname.startsWith("/workspace/insight-saved")
-      );
+      return pathname === links.team;
     }
     return (
       pathname.startsWith("/workspace/") &&
@@ -74,16 +75,25 @@ function navActive(
 const TAB_DEF = [
   { key: "dashboard", label: "대시보드" },
   { key: "experiments", label: "실험" },
-  { key: "analysis", label: "분석" },
-  { key: "writing", label: "라이팅" },
+  { key: "analysis", label: "인사이트" },
+  { key: "writing", label: "UX 라이팅" },
   { key: "team", label: "팀" },
   { key: "settings", label: "설정" },
 ] as const;
+
+type TopTabKey = (typeof TAB_DEF)[number]["key"];
+
+/** 팀원 워크스페이스는 이미 팀 뷰이므로 상단「팀」탭은 대시보드와 중복된다. */
+const WORKSPACE_HIDDEN_TOP_KEYS = new Set<TopTabKey>(["team"]);
 
 export function PlatformTopNav({ area }: { area: TopNavArea }) {
   const pathname = usePathname() ?? "";
   const mode = useLinkMode(area);
   const links = getPlatformLinks(mode);
+  const tabs =
+    area === "workspace"
+      ? TAB_DEF.filter((tab) => !WORKSPACE_HIDDEN_TOP_KEYS.has(tab.key))
+      : TAB_DEF;
 
   return (
     <header
@@ -108,7 +118,7 @@ export function PlatformTopNav({ area }: { area: TopNavArea }) {
           className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto sm:gap-1"
           aria-label="플랫폼 메뉴"
         >
-          {TAB_DEF.map((tab) => {
+          {tabs.map((tab) => {
             const href =
               tab.key === "dashboard"
                 ? links.dashboard

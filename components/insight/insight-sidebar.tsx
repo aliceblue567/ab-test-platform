@@ -34,8 +34,8 @@ export function InsightSidebar() {
   return (
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-56 flex-col border-r border-border bg-card">
       <div className="border-b border-border px-4 py-3">
-        <p className="text-xs font-semibold text-foreground/80">분석</p>
-        <p className="text-[11px] text-muted-foreground">인사이트 랩 하위 메뉴</p>
+        <p className="text-xs font-semibold text-foreground/80">인사이트</p>
+        <p className="text-[11px] text-muted-foreground">UX 인사이트 랩</p>
       </div>
       <div className="flex flex-1 flex-col gap-1 overflow-auto px-3 py-3">
         {navItems.map((item) => {
