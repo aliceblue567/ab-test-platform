@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
   getPlatformLinks,
-  resolvePlatformModeFromRole,
+  resolvePlatformModeForNav,
   PLATFORM_TOP_NAV_CLASS,
   type PlatformMode,
 } from "@/lib/platform-routes";
@@ -14,12 +14,11 @@ import { PlatformUserMenu } from "@/components/platform/platform-user-menu";
 
 type TopNavArea = "admin" | "workspace" | "insight" | "home";
 
-function useLinkMode(area: TopNavArea): PlatformMode {
+function useLinkMode(area: TopNavArea, pathname: string): PlatformMode {
   const { data: session } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role;
   if (area === "workspace") return "workspace";
   if (area === "admin") return "admin";
-  return resolvePlatformModeFromRole(role);
+  return resolvePlatformModeForNav(session ?? null, pathname);
 }
 
 function navActive(
@@ -88,7 +87,7 @@ const WORKSPACE_HIDDEN_TOP_KEYS = new Set<TopTabKey>(["team"]);
 
 export function PlatformTopNav({ area }: { area: TopNavArea }) {
   const pathname = usePathname() ?? "";
-  const mode = useLinkMode(area);
+  const mode = useLinkMode(area, pathname);
   const links = getPlatformLinks(mode);
   const tabs =
     area === "workspace"
@@ -127,7 +126,7 @@ export function PlatformTopNav({ area }: { area: TopNavArea }) {
                   : tab.key === "analysis"
                     ? links.analysis
                     : tab.key === "writing"
-                      ? links.writingGuide
+                      ? links.writingCheck
                       : tab.key === "team"
                         ? links.team
                         : links.settings;

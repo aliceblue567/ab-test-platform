@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { ChevronDown, LogOut, Settings, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getPlatformLinks,
-  resolvePlatformModeFromRole,
+  resolvePlatformModeForNav,
 } from "@/lib/platform-routes";
 
 type Area = "admin" | "workspace" | "insight" | "home";
@@ -25,13 +26,13 @@ export function PlatformUserMenu({ area }: { area: Area }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const role = (session?.user as { role?: string } | undefined)?.role;
+  const pathname = usePathname() ?? "";
   const mode =
     area === "workspace"
       ? "workspace"
       : area === "admin"
         ? "admin"
-        : resolvePlatformModeFromRole(role);
+        : resolvePlatformModeForNav(session ?? null, pathname);
   const links = getPlatformLinks(mode);
 
   if (status === "loading") {

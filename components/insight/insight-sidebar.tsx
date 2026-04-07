@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import {
   getPlatformLinks,
-  resolvePlatformModeFromRole,
+  resolvePlatformModeForNav,
 } from "@/lib/platform-routes";
 
 const navItems = [
@@ -24,10 +24,9 @@ const navItems = [
 ];
 
 export function InsightSidebar() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const { data: session } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const mode = resolvePlatformModeFromRole(role);
+  const mode = resolvePlatformModeForNav(session ?? null, pathname);
   const links = getPlatformLinks(mode);
   const platformHome = links.dashboard;
 

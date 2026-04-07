@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   getPlatformLinks,
-  resolvePlatformModeFromRole,
+  resolvePlatformModeForNav,
 } from "@/lib/platform-routes";
 
 type Crumb = { label: string; href: string };
@@ -73,8 +73,29 @@ function buildCrumbs(pathname: string, mode: "admin" | "workspace"): Crumb[] {
     return [root, { label: "설정", href: L.settings }];
   }
 
+  if (p === "/admin/audit" || p.startsWith("/admin/audit/")) {
+    return [root, { label: "감사 로그", href: "/admin/audit" }];
+  }
+
+  if (p === "/admin/experiments/new") {
+    return [
+      root,
+      { label: "실험", href: L.experiments },
+      { label: "새 실험", href: p },
+    ];
+  }
+
+  const adminExpDetail = /^\/admin\/experiments\/([^/]+)$/.exec(p);
+  if (adminExpDetail?.[1] && adminExpDetail[1] !== "new") {
+    return [
+      root,
+      { label: "실험", href: L.experiments },
+      { label: "실험 상세", href: p },
+    ];
+  }
+
   if (p.startsWith("/insight")) {
-    const lab = { label: "UX 인사이트 랩", href: "/insight" } as const;
+    const lab = { label: "인사이트", href: "/insight" } as const;
     if (p === "/insight" || p === "/insight/") {
       return [root, lab];
     }
@@ -128,8 +149,7 @@ function buildCrumbs(pathname: string, mode: "admin" | "workspace"): Crumb[] {
 export function PlatformBreadcrumb() {
   const pathname = usePathname() ?? "";
   const { data: session, status } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const mode = resolvePlatformModeFromRole(role);
+  const mode = resolvePlatformModeForNav(session ?? null, pathname);
 
   if (status === "loading") return null;
 

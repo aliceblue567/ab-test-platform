@@ -16,6 +16,7 @@ import {
   PenLine,
   LayoutDashboard,
   Settings,
+  ClipboardList,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -173,12 +174,17 @@ export function AdminNav() {
           </p>
         </div>
 
-        <p className={sectionTitleClass(false)}>설정</p>
+        <p className={sectionTitleClass(false)}>설정 · 운영</p>
         <div className="flex flex-col gap-1">
           <NavLink
             href="/admin/settings"
             label="조직 설정"
             icon={Settings}
+          />
+          <NavLink
+            href="/admin/audit"
+            label="감사 로그"
+            icon={ClipboardList}
           />
         </div>
       </div>
