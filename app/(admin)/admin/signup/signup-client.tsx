@@ -18,11 +18,13 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
   const [confirm, setConfirm] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fixSql, setFixSql] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setFixSql(null);
     if (password !== confirm) {
       setError("비밀번호 확인이 일치하지 않습니다.");
       return;
@@ -48,6 +50,9 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
             ? signupData.message
             : "가입에 실패했습니다."
         );
+        if (typeof signupData.fixSql === "string") {
+          setFixSql(signupData.fixSql);
+        }
         setLoading(false);
         return;
       }
@@ -91,8 +96,15 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
           <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             <input type="hidden" name="callbackUrl" value={callbackUrl} />
             {error && (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
+              <div className="space-y-2">
+                <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive whitespace-pre-line">
+                  {error}
+                </div>
+                {fixSql && (
+                  <pre className="max-h-40 overflow-auto rounded-md border border-border bg-muted/50 p-2 text-xs text-foreground">
+                    {fixSql}
+                  </pre>
+                )}
               </div>
             )}
             {inviteRequired && (

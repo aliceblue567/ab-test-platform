@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { USERS_PASSWORD_HASH_SQL } from "@/lib/db-password-hash-migration";
 import { isSignupAvailable, verifySignupInvite } from "@/lib/signup-gate";
 
 function normalizeEmail(email: string) {
@@ -104,7 +105,11 @@ export async function POST(req: NextRequest) {
         ? "DB에 password_hash 컬럼이 없습니다. Supabase SQL로 컬럼을 추가한 뒤 다시 시도해 주세요."
         : "가입 처리 중 오류가 발생했습니다.";
     return NextResponse.json(
-      { error: "DB_SCHEMA", message: msg },
+      {
+        error: "DB_SCHEMA",
+        message: msg,
+        fixSql: USERS_PASSWORD_HASH_SQL,
+      },
       { status: 503 }
     );
   }

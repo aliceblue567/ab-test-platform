@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { USERS_PASSWORD_HASH_SQL } from "@/lib/db-password-hash-migration";
 
 function norm(s: string): string {
   return (
@@ -34,6 +35,9 @@ export type CredentialCheckResult = {
   passwordMatch: boolean;
   /** DB에 passwordHash가 있을 때 bcrypt로 통과했는지 */
   dbPasswordMatch?: boolean;
+  /** Prisma P2022 — 배포 DB에 마이그레이션 미적용 */
+  missingPasswordHashColumn?: boolean;
+  fixSql?: string;
   debugMismatch?: {
     inputEmailLen: number;
     envEmailLen: number;
@@ -88,6 +92,7 @@ export async function verifyLoginCredentials(
       : inputEmail;
 
   let dbPasswordMatch: boolean | undefined;
+  let missingPasswordHashColumn = false;
 
   if (!match && inputEmail.length > 0 && inputPassword.length > 0) {
     try {
@@ -110,12 +115,11 @@ export async function verifyLoginCredentials(
         }
       }
     } catch (e) {
-      // DB에 password_hash 컬럼이 없으면(P2022) 팀원 DB 로그인만 불가, env/디버그는 위에서 처리됨
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === "P2022"
       ) {
-        /* skip */
+        missingPasswordHashColumn = true;
       } else {
         throw e;
       }
@@ -134,6 +138,12 @@ export async function verifyLoginCredentials(
     emailMatch,
     passwordMatch,
     dbPasswordMatch,
+    ...(missingPasswordHashColumn
+      ? {
+          missingPasswordHashColumn: true,
+          fixSql: USERS_PASSWORD_HASH_SQL,
+        }
+      : {}),
     debugMismatch,
   };
 }

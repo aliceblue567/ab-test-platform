@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
             envMatch: result.envMatch,
             knownMatch: result.knownMatch,
             dbPasswordMatch: result.dbPasswordMatch,
+            missingPasswordHashColumn: result.missingPasswordHashColumn,
+            ...(result.fixSql ? { fixSql: result.fixSql } : {}),
           },
         },
         { status: 401 }

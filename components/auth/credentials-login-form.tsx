@@ -32,6 +32,7 @@ function LoginFormInner({
   );
   const [loading, setLoading] = useState(false);
   const [diagnose, setDiagnose] = useState<string | null>(null);
+  const [schemaFixSql, setSchemaFixSql] = useState<string | null>(null);
 
   const isWorkspace = variant === "workspace";
   const title = isWorkspace ? "팀 워크스페이스 로그인" : "관리자 로그인";
@@ -50,6 +51,7 @@ function LoginFormInner({
   const handleDiagnose = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     setDiagnose(null);
+    setSchemaFixSql(null);
     setLoading(true);
     const form = (e.currentTarget as HTMLButtonElement).form;
     if (!form) return;
@@ -67,6 +69,14 @@ function LoginFormInner({
         }).toString(),
       });
       const data = await res.json().catch(() => ({}));
+      if (!res.ok && data?.debug?.missingPasswordHashColumn) {
+        setSchemaFixSql(
+          typeof data.debug.fixSql === "string" ? data.debug.fixSql : null
+        );
+        setError(
+          "DB에 password_hash 컬럼이 없습니다. 아래 SQL을 Supabase에서 실행한 뒤 다시 로그인해 주세요."
+        );
+      }
       setDiagnose(
         JSON.stringify(
           {
@@ -74,11 +84,13 @@ function LoginFormInner({
             ...data,
             clientSent: { emailLen: eVal.length, passwordLen: pVal.length },
             hint:
-              res.status === 401 && data?.debug && !data.debug.envEmailSet
-                ? "Vercel 환경 변수 AUTH_ADMIN_EMAIL 이 비어 있습니다."
-                : res.status === 401 && data?.debug && !data.debug.envPasswordSet
-                  ? "Vercel 환경 변수 AUTH_ADMIN_PASSWORD 가 비어 있습니다."
-                  : undefined,
+              data?.debug?.missingPasswordHashColumn
+                ? "DB에 password_hash 컬럼 추가 필요 — debug.fixSql 참고"
+                : res.status === 401 && data?.debug && !data.debug.envEmailSet
+                  ? "Vercel 환경 변수 AUTH_ADMIN_EMAIL 이 비어 있습니다."
+                  : res.status === 401 && data?.debug && !data.debug.envPasswordSet
+                    ? "Vercel 환경 변수 AUTH_ADMIN_PASSWORD 가 비어 있습니다."
+                    : undefined,
           },
           null,
           2
@@ -95,6 +107,7 @@ function LoginFormInner({
     e.preventDefault();
     setError(null);
     setDiagnose(null);
+    setSchemaFixSql(null);
     setLoading(true);
     const form = e.currentTarget;
     const { email: eVal, password: pVal } = getFormValues(form);
@@ -115,8 +128,29 @@ function LoginFormInner({
         window.location.href = data.url;
         return;
       }
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
-      if (showDiagnose) setDiagnose(JSON.stringify(data, null, 2));
+      if (data?.debug?.missingPasswordHashColumn) {
+        setSchemaFixSql(
+          typeof data.debug.fixSql === "string" ? data.debug.fixSql : null
+        );
+        setError(
+          "DB에 password_hash 컬럼이 없어 이메일·비밀번호 로그인을 할 수 없습니다. Supabase SQL Editor에서 아래 SQL을 실행한 뒤 다시 시도해 주세요. (또는 배포 파이프라인에서 npx prisma migrate deploy)"
+        );
+        if (showDiagnose) {
+          setDiagnose(
+            JSON.stringify(
+              {
+                ...data,
+                hint: "운영 DB에 prisma/migrations/20260406120000_add_user_password_hash 가 적용되지 않은 상태입니다.",
+              },
+              null,
+              2
+            )
+          );
+        }
+      } else {
+        setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+        if (showDiagnose) setDiagnose(JSON.stringify(data, null, 2));
+      }
     } catch {
       setError("로그인 중 오류가 발생했습니다.");
     } finally {
@@ -145,8 +179,15 @@ function LoginFormInner({
           <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
             <input type="hidden" name="callbackUrl" value={callbackUrl} />
             {error && (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
+              <div className="space-y-2">
+                <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive whitespace-pre-line">
+                  {error}
+                </div>
+                {schemaFixSql && (
+                  <pre className="max-h-40 overflow-auto rounded-md border border-border bg-muted/50 p-2 text-xs text-foreground">
+                    {schemaFixSql}
+                  </pre>
+                )}
               </div>
             )}
             <div className="space-y-2">
