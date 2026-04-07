@@ -13,13 +13,20 @@ import { assignmentInputSchema } from "@/src/lib/validation";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { experimentKey, userKey } = assignmentInputSchema.parse(body);
-    const result = await getOrCreateAssignment(experimentKey, userKey);
+    const { experimentKey, userKey, participantToken } =
+      assignmentInputSchema.parse(body);
+    const result = await getOrCreateAssignment(
+      experimentKey,
+      userKey,
+      participantToken
+    );
 
     if (isAssignmentError(result)) {
       const status =
         result.code === "EXPERIMENT_NOT_FOUND" ? 404 :
-        result.code === "EXPERIMENT_NOT_RUNNING" ? 409 : 500;
+        result.code === "EXPERIMENT_NOT_RUNNING" ? 409 :
+        result.code === "PARTICIPANT_TOKEN_REQUIRED" ? 403 :
+        result.code === "PARTICIPANT_TOKEN_INVALID" ? 403 : 500;
       return NextResponse.json(
         { error: result.code },
         { status }

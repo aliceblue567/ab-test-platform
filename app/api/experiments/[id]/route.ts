@@ -112,6 +112,9 @@ export async function PATCH(
         ...(data.trafficAllocation !== undefined && {
           trafficAllocation: data.trafficAllocation,
         }),
+        ...(data.requireParticipantLinkToken !== undefined && {
+          requireParticipantLinkToken: data.requireParticipantLinkToken,
+        }),
       },
       include: { variants: true },
     });

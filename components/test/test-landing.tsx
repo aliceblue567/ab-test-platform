@@ -15,9 +15,14 @@ type AssignmentResult = {
 
 type TestLandingProps = {
   experimentSlug: string;
+  /** URL 쿼리 `p` — 참가 링크 2차 보호 토큰 */
+  participantToken?: string;
 };
 
-export function TestLanding({ experimentSlug }: TestLandingProps) {
+export function TestLanding({
+  experimentSlug,
+  participantToken,
+}: TestLandingProps) {
   const [assignment, setAssignment] = useState<AssignmentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userKey, setUserKey] = useState<string | null>(null);
@@ -35,12 +40,31 @@ export function TestLanding({ experimentSlug }: TestLandingProps) {
       body: JSON.stringify({
         experimentKey: experimentSlug,
         userKey: uKey,
+        ...(participantToken?.trim()
+          ? { participantToken: participantToken.trim() }
+          : {}),
       }),
     })
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
           if (res.status === 404) throw new Error("실험을 찾을 수 없습니다.");
           if (res.status === 409) throw new Error("실험이 실행 중이 아닙니다.");
+          if (res.status === 403) {
+            const data = (await res.json().catch(() => ({}))) as {
+              error?: string;
+            };
+            if (data.error === "PARTICIPANT_TOKEN_REQUIRED") {
+              throw new Error(
+                "이 실험은 초대 링크가 필요합니다. 팀에서 받은 전체 URL(끝에 ?p=… 포함)으로 열어 주세요."
+              );
+            }
+            if (data.error === "PARTICIPANT_TOKEN_INVALID") {
+              throw new Error(
+                "참가 링크가 만료되었거나 올바르지 않습니다. 팀에 새 링크를 요청해 주세요."
+              );
+            }
+            throw new Error("참가할 수 없습니다.");
+          }
           throw new Error("할당에 실패했습니다.");
         }
         return res.json();
@@ -54,7 +78,7 @@ export function TestLanding({ experimentSlug }: TestLandingProps) {
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "오류가 발생했습니다."));
-  }, [experimentSlug]);
+  }, [experimentSlug, participantToken]);
 
   useEffect(() => {
     if (!assignment || !userKey) return;

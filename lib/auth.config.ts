@@ -4,7 +4,10 @@
  */
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { getSessionMaxAgeSeconds } from "@/lib/auth-session-max-age";
+import {
+  getAdminSessionMaxAgeSeconds,
+  getWorkspaceSessionMaxAgeSeconds,
+} from "@/lib/auth-session-max-age";
 
 export default {
   secret:
@@ -15,7 +18,11 @@ export default {
   trustHost: true,
   session: {
     strategy: "jwt",
-    maxAge: getSessionMaxAgeSeconds(),
+    /** JWT 상한 — 실제 쿠키/JWT 만료는 로그인 시 역할별 encode 로 맞춤 */
+    maxAge: Math.max(
+      getAdminSessionMaxAgeSeconds(),
+      getWorkspaceSessionMaxAgeSeconds()
+    ),
   },
   pages: {
     signIn: "/admin/login",

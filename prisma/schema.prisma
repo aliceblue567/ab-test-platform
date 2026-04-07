@@ -120,6 +120,8 @@ model Experiment {
   primaryGoalCustom String?          @db.Text @map("primary_goal_custom")
   status            ExperimentStatus @default(draft)
   trafficAllocation Int              @default(100)
+  /// true면 /api/assign 시 URL 쿼리 `p` 서명 토큰 필수 (외부 공유 링크 2차 보호)
+  requireParticipantLinkToken Boolean @default(false) @map("require_participant_link_token")
   startAt           DateTime?
   endAt             DateTime?
   ownerId           String?          @map("owner_id")

@@ -86,6 +86,8 @@ export const assignmentInputSchema = z.object({
     .min(1, "userKey is required")
     .max(256)
     .regex(/^[a-zA-Z0-9_-]+$/, "userKey contains invalid characters"),
+  /** 외부 참가 링크 2차 보호 — 실험 또는 PARTICIPANT_LINK_REQUIRED 시 필수 */
+  participantToken: z.string().min(1).max(4096).optional(),
 });
 
 export type AssignmentInput = z.infer<typeof assignmentInputSchema>;
@@ -111,6 +113,7 @@ export const createExperimentSchema = z.object({
   primaryGoalKey: primaryGoalKeySchema.optional(),
   primaryGoalCustom: z.string().max(256).optional(),
   trafficAllocation: z.number().min(0).max(100).optional(),
+  requireParticipantLinkToken: z.boolean().optional(),
   variants: z
     .array(
       z.object({
@@ -131,6 +134,7 @@ export const updateExperimentSchema = z.object({
   primaryGoalKey: primaryGoalKeySchema.optional().nullable(),
   primaryGoalCustom: z.string().max(256).optional().nullable(),
   trafficAllocation: z.number().min(0).max(100).optional(),
+  requireParticipantLinkToken: z.boolean().optional(),
   variants: z
     .array(
       z.object({

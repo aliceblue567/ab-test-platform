@@ -6,6 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { BasicInfoEditSection } from "./basic-info-edit-section";
 import { VariantEditSection } from "./variant-edit-section";
 import { PrimaryGoalEditSection } from "./primary-goal-edit-section";
@@ -37,6 +40,7 @@ type Experiment = {
   primaryGoalCustom: string | null;
   status: string;
   trafficAllocation: number;
+  requireParticipantLinkToken: boolean;
   variants: {
     id: string;
     key: string;
@@ -53,6 +57,10 @@ export function ExperimentEditForm({ experimentId }: { experimentId: string }) {
   const [experiment, setExperiment] = useState<Experiment | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(false);
+  const [tokenToggleLoading, setTokenToggleLoading] = useState(false);
+  const [mintLoading, setMintLoading] = useState(false);
+  const [mintUrl, setMintUrl] = useState<string | null>(null);
+  const [mintExpires, setMintExpires] = useState<string | null>(null);
 
   const form = useForm<EditExperimentFormValues>({
     resolver: zodResolver(editExperimentFormSchema),
@@ -73,7 +81,10 @@ export function ExperimentEditForm({ experimentId }: { experimentId: string }) {
         return res.json();
       })
       .then((data: Experiment) => {
-        setExperiment(data);
+        setExperiment({
+          ...data,
+          requireParticipantLinkToken: data.requireParticipantLinkToken === true,
+        });
         form.reset({
           name: data.name,
           description: data.description ?? "",
@@ -106,7 +117,7 @@ export function ExperimentEditForm({ experimentId }: { experimentId: string }) {
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
-        const updated = await res.json();
+        const updated = (await res.json()) as Experiment;
         setExperiment(updated);
       }
     } finally {
@@ -206,6 +217,107 @@ export function ExperimentEditForm({ experimentId }: { experimentId: string }) {
         )}
 
         <BasicInfoEditSection />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">외부 참가 링크</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              2차 보호를 켜면 <code className="rounded bg-muted px-1">/test/실험키</code>만으로는
+              참가할 수 없고, 아래에서 발급한 주소(토큰 포함)만 유효합니다. 발급할 때마다 새
+              토큰이 붙습니다. 모든 실험에 강제하려면 배포 환경에{" "}
+              <code className="rounded bg-muted px-1">PARTICIPANT_LINK_REQUIRED=true</code>를
+              설정하세요.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
+              <div className="min-w-0">
+                <Label htmlFor="req-participant-token">참가 링크 2차 보호</Label>
+                <p className="text-xs text-muted-foreground">
+                  외부 테스터에게는「새 참가 링크 발급」으로 만든 URL만 공유
+                </p>
+              </div>
+              <Switch
+                id="req-participant-token"
+                className="shrink-0"
+                checked={experiment.requireParticipantLinkToken}
+                disabled={tokenToggleLoading}
+                onCheckedChange={async (v) => {
+                  setTokenToggleLoading(true);
+                  try {
+                    const res = await fetch(`/api/experiments/${experimentId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ requireParticipantLinkToken: v }),
+                    });
+                    if (res.ok) {
+                      const u = (await res.json()) as Experiment;
+                      setExperiment((prev) =>
+                        prev ? { ...prev, requireParticipantLinkToken: u.requireParticipantLinkToken } : null
+                      );
+                    }
+                  } finally {
+                    setTokenToggleLoading(false);
+                  }
+                }}
+              />
+            </div>
+            {experiment.status === "running" && (
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={mintLoading}
+                  onClick={async () => {
+                    setMintLoading(true);
+                    try {
+                      const res = await fetch(
+                        `/api/experiments/${experimentId}/participant-link`,
+                        { method: "POST" }
+                      );
+                      const data = (await res.json()) as {
+                        url?: string;
+                        expiresAt?: string;
+                        error?: string;
+                      };
+                      if (res.ok && data.url) {
+                        setMintUrl(data.url);
+                        setMintExpires(data.expiresAt ?? null);
+                      }
+                    } finally {
+                      setMintLoading(false);
+                    }
+                  }}
+                >
+                  {mintLoading ? "발급 중…" : "새 참가 링크 발급"}
+                </Button>
+                {mintUrl && (
+                  <div className="space-y-2">
+                    <Label>
+                      방금 발급한 링크
+                      {mintExpires && (
+                        <span className="ml-2 font-normal text-muted-foreground">
+                          (만료 {new Date(mintExpires).toLocaleString()})
+                        </span>
+                      )}
+                    </Label>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <Input readOnly value={mintUrl} className="font-mono text-xs" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={() => void navigator.clipboard.writeText(mintUrl)}
+                      >
+                        복사
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

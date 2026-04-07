@@ -15,6 +15,7 @@ type Experiment = {
   description: string | null;
   status: string;
   trafficAllocation: number;
+  requireParticipantLinkToken?: boolean;
   variants: { id: string; key: string; name: string }[];
   updatedAt: string;
 };
@@ -134,7 +135,14 @@ export function ExperimentsListPage() {
                       {exp.name}
                     </Link>
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">{exp.key}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {exp.key}
+                    {exp.requireParticipantLinkToken && exp.status === "running" && (
+                      <span className="ml-2 text-xs text-amber-600 dark:text-amber-500">
+                        · 참가 링크 2차 보호
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <ExperimentStatusBadge status={exp.status} />
               </CardHeader>

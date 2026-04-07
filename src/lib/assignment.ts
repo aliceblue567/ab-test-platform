@@ -4,6 +4,10 @@
  */
 import { prisma } from "@/src/lib/db";
 import type { VariantKey } from "@prisma/client";
+import {
+  isParticipantLinkGloballyRequired,
+  verifyParticipantLinkToken,
+} from "@/lib/participant-link-token";
 
 export type AssignmentResult = {
   assignmentId: string;
@@ -17,6 +21,8 @@ export type AssignmentError =
   | { code: "EXPERIMENT_NOT_FOUND" }
   | { code: "EXPERIMENT_NOT_RUNNING" }
   | { code: "NO_VARIANTS" }
+  | { code: "PARTICIPANT_TOKEN_REQUIRED" }
+  | { code: "PARTICIPANT_TOKEN_INVALID" }
   | { code: "DB_ERROR"; cause?: unknown };
 
 /**
@@ -24,7 +30,8 @@ export type AssignmentError =
  */
 export async function getOrCreateAssignment(
   experimentKey: string,
-  userKey: string
+  userKey: string,
+  participantToken?: string | null
 ): Promise<AssignmentResult | AssignmentError> {
   try {
     const experiment = await prisma.experiment.findUnique({
@@ -38,6 +45,20 @@ export async function getOrCreateAssignment(
 
     if (experiment.status !== "running") {
       return { code: "EXPERIMENT_NOT_RUNNING" };
+    }
+
+    const needParticipantToken =
+      isParticipantLinkGloballyRequired() ||
+      experiment.requireParticipantLinkToken;
+    if (needParticipantToken) {
+      const t = participantToken?.trim();
+      if (!t) {
+        return { code: "PARTICIPANT_TOKEN_REQUIRED" };
+      }
+      const v = verifyParticipantLinkToken(t, experimentKey);
+      if (!v.ok) {
+        return { code: "PARTICIPANT_TOKEN_INVALID" };
+      }
     }
 
     if (experiment.variants.length === 0) {

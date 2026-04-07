@@ -11,7 +11,7 @@ import {
 } from "@/lib/credential-check";
 import { buildCredentialsJwtFields } from "@/lib/auth-jwt-payload";
 import { loginPagePathForCallback } from "@/lib/auth-login-redirect";
-import { getSessionMaxAgeSeconds } from "@/lib/auth-session-max-age";
+import { getSessionMaxAgeForRole } from "@/lib/auth-session-max-age";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
     const body = await parseRequestBody(req, contentType);
     const callbackUrl = String(body?.callbackUrl ?? "/admin/experiments");
     const loginPath = loginPagePathForCallback(callbackUrl);
-    const maxAge = getSessionMaxAgeSeconds();
     const result = await verifyLoginCredentials(body);
 
     if (!result.match) {
@@ -44,7 +43,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const isSecure = req.nextUrl.protocol === "https:";
+    const maxAge = getSessionMaxAgeForRole(user.role);
+
+    const isSecure =
+      req.nextUrl.protocol === "https:" ||
+      req.headers.get("x-forwarded-proto") === "https";
     const cookieName = isSecure ? "__Secure-authjs.session-token" : "authjs.session-token";
 
     const secret = process.env.AUTH_SECRET || "dev-secret-replace-in-production";

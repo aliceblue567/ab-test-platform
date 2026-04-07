@@ -10,7 +10,7 @@ import {
   verifyLoginCredentials,
 } from "@/lib/credential-check";
 import { buildCredentialsJwtFields } from "@/lib/auth-jwt-payload";
-import { getSessionMaxAgeSeconds } from "@/lib/auth-session-max-age";
+import { getSessionMaxAgeForRole } from "@/lib/auth-session-max-age";
 
 export async function POST(req: NextRequest) {
   if (
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         req.headers.get("x-forwarded-proto") === "https";
       const cookieName = isSecure ? "__Secure-authjs.session-token" : "authjs.session-token";
       const secret = process.env.AUTH_SECRET || "dev-secret-replace-in-production";
-      const maxAge = getSessionMaxAgeSeconds();
+      const maxAge = getSessionMaxAgeForRole(user.role);
       const token = await encode({
         token: buildCredentialsJwtFields(user),
         secret,

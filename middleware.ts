@@ -7,7 +7,10 @@ import {
   getGateSecret,
   getGateCookieName,
 } from "@/lib/admin-gate";
-import { getInternalGatePrefix } from "@/lib/internal-routes";
+import {
+  getInternalGatePrefix,
+  isTeamOnlyRootPath,
+} from "@/lib/internal-routes";
 
 /** 게이트·로그인 등 세션 없이 접근 가능한 경로 */
 const AUTH_PUBLIC_PATHS = [
@@ -27,14 +30,16 @@ function matchesPublic(pathname: string, prefixes: readonly string[]): boolean {
  * 2) NextAuth: 로그인·게이트·에러 페이지 제외하고 세션 필요
  *
  * /admin (A/B·UX 라이팅) 과 /insight (UX 인사이트 랩) 은 별도 제품이지만 동일 보안 정책을 적용한다.
+ * 루트 `/` 는 팀용(홈·UX 검수). 외부 참가자용은 `/test/:experimentKey` 만 공유한다 (matcher 비적용).
  */
 const { auth } = NextAuth(authConfig);
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
   const gatedPrefix = getInternalGatePrefix(pathname);
+  const teamOnly = Boolean(gatedPrefix) || isTeamOnlyRootPath(pathname);
 
-  if (gatedPrefix) {
+  if (teamOnly) {
     const gateSecret = getGateSecret();
     const adminPwSet = isAdminPasswordConfigured();
 
@@ -100,7 +105,9 @@ export default auth(async (req) => {
 
 export const config = {
   // `/insight` 단독 경로도 반드시 포함 (일부 matcher에서 `:path*`만으로 루트가 빠질 수 있음)
+  // `/test/:path*` 는 의도적으로 제외 — 외부 A/B 참가자 전용 공개 URL
   matcher: [
+    "/",
     "/admin/:path*",
     "/insight",
     "/insight/:path*",

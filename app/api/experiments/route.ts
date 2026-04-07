@@ -65,6 +65,7 @@ export async function POST(req: Request) {
         primaryGoalKey: data.primaryGoalKey ?? null,
         primaryGoalCustom: data.primaryGoalCustom ?? null,
         trafficAllocation: data.trafficAllocation ?? 100,
+        requireParticipantLinkToken: data.requireParticipantLinkToken ?? false,
         ownerId: userId,
         variants: {
           create: data.variants.map((v) => ({
