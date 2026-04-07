@@ -59,11 +59,25 @@ export function getAdminSidebarItems(
     case "analysis":
       return {
         items: [
-          { href: "/insight", label: "UX 인사이트 랩", icon: Sparkles },
+          {
+            href: "/insight",
+            label: "UX 인사이트 랩",
+            icon: Sparkles,
+            exactPath: true,
+          },
           { href: "/insight/screens", label: "화면 분석", icon: ImageIcon },
           { href: "/insight/flows", label: "유저 플로우 분석", icon: Workflow },
-          { href: "/insight/benchmark", label: "벤치마킹", icon: GitCompareArrows },
-          { href: "/insight/benchmark", label: "경쟁사 비교", icon: Building2 },
+          {
+            href: "/insight/benchmark",
+            label: "벤치마킹",
+            icon: GitCompareArrows,
+            inactiveWhenSearchHasKey: "lens",
+          },
+          {
+            href: "/insight/benchmark?lens=competitor",
+            label: "경쟁사 비교",
+            icon: Building2,
+          },
           { href: `${w}/insight-saved`, label: "저장된 리포트", icon: FolderOpen },
         ],
       };
@@ -90,7 +104,12 @@ export function getAdminSidebarItems(
     case "settings":
       return {
         items: [
-          { href: `${a}/settings`, label: "조직 설정", icon: Settings },
+          {
+            href: `${a}/settings`,
+            label: "조직 설정",
+            icon: Settings,
+            exactPath: true,
+          },
           { href: `${a}/settings/permissions`, label: "권한 관리", icon: Users },
           { href: `${a}/settings/notifications`, label: "알림 설정", icon: Bell },
           { href: `${a}/settings/security`, label: "보안 설정", icon: Shield },
@@ -139,11 +158,25 @@ export function getWorkspaceSidebarItems(
     case "analysis":
       return {
         items: [
-          { href: "/insight", label: "UX 인사이트 랩", icon: Sparkles },
+          {
+            href: "/insight",
+            label: "UX 인사이트 랩",
+            icon: Sparkles,
+            exactPath: true,
+          },
           { href: "/insight/screens", label: "화면 분석", icon: ImageIcon },
           { href: "/insight/flows", label: "유저 플로우 분석", icon: Workflow },
-          { href: "/insight/benchmark", label: "벤치마킹", icon: GitCompareArrows },
-          { href: "/insight/benchmark", label: "경쟁사 비교", icon: Building2 },
+          {
+            href: "/insight/benchmark",
+            label: "벤치마킹",
+            icon: GitCompareArrows,
+            inactiveWhenSearchHasKey: "lens",
+          },
+          {
+            href: "/insight/benchmark?lens=competitor",
+            label: "경쟁사 비교",
+            icon: Building2,
+          },
           { href: `${w}/insight-saved`, label: "저장된 리포트", icon: FolderOpen },
         ],
       };

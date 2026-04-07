@@ -60,6 +60,8 @@ function AdminNavLinks() {
             label={item.label}
             icon={item.icon}
             clearQueryForActive={item.clearQueryForActive}
+            exactPath={item.exactPath}
+            inactiveWhenSearchHasKey={item.inactiveWhenSearchHasKey}
           />
         ))}
         {section === "settings" && (

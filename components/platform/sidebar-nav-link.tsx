@@ -11,11 +11,16 @@ export function SidebarNavLink({
   icon: Icon,
   /** 목록 루트: 쿼리가 없을 때만 활성 (필터 링크와 구분) */
   clearQueryForActive,
+  /** 경로 정확 일치만 활성 — /insight 가 /insight/benchmark 와 겹치지 않게 */
+  exactPath,
+  inactiveWhenSearchHasKey,
 }: {
   href: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
   clearQueryForActive?: boolean;
+  exactPath?: boolean;
+  inactiveWhenSearchHasKey?: string | string[];
 }) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
@@ -25,6 +30,8 @@ export function SidebarNavLink({
   let isActive = false;
   if (clearQueryForActive) {
     isActive = pathname === path && searchParams.toString() === "";
+  } else if (exactPath) {
+    isActive = pathname === path || pathname === `${path}/`;
   } else if (queryPart !== undefined) {
     const want = new URLSearchParams(queryPart);
     isActive =
@@ -33,9 +40,18 @@ export function SidebarNavLink({
   } else if (path === "/") {
     isActive = pathname === "/";
   } else {
-    isActive =
+    let base =
       pathname === path ||
       (path.length > 1 && pathname.startsWith(`${path}/`));
+    if (base && inactiveWhenSearchHasKey) {
+      const keys = Array.isArray(inactiveWhenSearchHasKey)
+        ? inactiveWhenSearchHasKey
+        : [inactiveWhenSearchHasKey];
+      if (keys.some((k) => searchParams.has(k))) {
+        base = false;
+      }
+    }
+    isActive = base;
   }
 
   return (

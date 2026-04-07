@@ -19,6 +19,10 @@ export type SidebarNavItem = {
   external?: boolean;
   /** 실험 목록 루트: URL에 필터 쿼리가 없을 때만 활성 */
   clearQueryForActive?: boolean;
+  /** 하위 경로에서는 비활성 (예: /insight 랩 루트, /admin/settings 조직 설정) */
+  exactPath?: boolean;
+  /** 쿼리에 이 키가 있으면 비활성 (같은 path의 형제 메뉴용, 예: 벤치마킹 vs ?lens=) */
+  inactiveWhenSearchHasKey?: string | string[];
 };
 
 /**
