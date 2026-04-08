@@ -43,6 +43,24 @@ ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'member';
 ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'viewer';`;
 }
 
+async function ensureUserRoleEnumForSignup() {
+  await prisma.$executeRawUnsafe(`DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'UserRole') THEN
+    CREATE TYPE "UserRole" AS ENUM ('admin','member','viewer');
+  END IF;
+END $$;`);
+  await prisma.$executeRawUnsafe(
+    `ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'member';`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'viewer';`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "role" "UserRole" NOT NULL DEFAULT 'admin';`
+  );
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -138,6 +156,38 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[signup] failed", e);
+    const rawMsg = e instanceof Error ? e.message : String(e);
+    const enumInvalid = rawMsg.includes(
+      'invalid input value for enum "UserRole": "member"'
+    );
+    if (enumInvalid) {
+      try {
+        await ensureUserRoleEnumForSignup();
+        await prisma.user.create({
+          data: {
+            email,
+            name,
+            passwordHash,
+            role: "member",
+          },
+          select: { id: true },
+        });
+        return NextResponse.json({ ok: true, repaired: true });
+      } catch (repairErr) {
+        console.error("[signup] enum repair failed", repairErr);
+        return NextResponse.json(
+          {
+            error: "DB_SCHEMA",
+            code: "ENUM_USERROLE_INVALID",
+            message:
+              'DB enum "UserRole"에 member/viewer 값이 없습니다. SQL을 적용한 뒤 다시 시도해 주세요.',
+            fixSql: userRoleEnumFixSql(),
+          },
+          { status: 503 }
+        );
+      }
+    }
+
     const isSchemaErr =
       e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022";
     const missingColumn =
