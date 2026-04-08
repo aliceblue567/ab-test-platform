@@ -12,6 +12,9 @@ import { buildCredentialsJwtFields } from "@/lib/auth-jwt-payload";
 import { loginPagePathForCallback } from "@/lib/auth-login-redirect";
 import { getSessionMaxAgeForRole } from "@/lib/auth-session-max-age";
 
+const SECURE_COOKIE_NAME = "__Secure-authjs.session-token";
+const PLAIN_COOKIE_NAME = "authjs.session-token";
+
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") ?? "";
@@ -70,13 +73,17 @@ export async function POST(req: NextRequest) {
     const isSecure =
       req.nextUrl.protocol === "https:" ||
       req.headers.get("x-forwarded-proto") === "https";
-    const cookieName = isSecure ? "__Secure-authjs.session-token" : "authjs.session-token";
-
     const secret = process.env.AUTH_SECRET || "dev-secret-replace-in-production";
-    const token = await encode({
+    const secureToken = await encode({
       token: buildCredentialsJwtFields(user),
       secret,
-      salt: cookieName,
+      salt: SECURE_COOKIE_NAME,
+      maxAge,
+    });
+    const plainToken = await encode({
+      token: buildCredentialsJwtFields(user),
+      secret,
+      salt: PLAIN_COOKIE_NAME,
       maxAge,
     });
 
@@ -84,13 +91,23 @@ export async function POST(req: NextRequest) {
     const res = useRedirect
       ? NextResponse.redirect(new URL(callbackUrl, req.url))
       : NextResponse.json({ url: callbackUrl });
-    res.cookies.set(cookieName, token, {
+    // 런타임(Edge/Node)별 쿠키명 판단 차이를 피하기 위해 둘 다 발급
+    res.cookies.set(PLAIN_COOKIE_NAME, plainToken, {
       httpOnly: true,
-      secure: isSecure,
+      secure: false,
       sameSite: "lax",
       path: "/",
       maxAge,
     });
+    if (isSecure) {
+      res.cookies.set(SECURE_COOKIE_NAME, secureToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge,
+      });
+    }
 
     return res;
   } catch (err) {
