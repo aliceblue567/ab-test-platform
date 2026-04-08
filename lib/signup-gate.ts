@@ -2,16 +2,15 @@ import { createHash, timingSafeEqual } from "crypto";
 
 type InviteRosterRow = {
   email: string;
-  password: string;
   code: string;
 };
 
 /**
  * AUTH_SIGNUP_INVITES 형식 (줄바꿈 또는 세미콜론 구분):
- *   email,password,inviteCode
+ *   email,inviteCode
  * 예:
- *   a@company.com,Pass1234,INVITE-A
- *   b@company.com,Pass5678,INVITE-B
+ *   a@company.com,INVITE-A
+ *   b@company.com,INVITE-B
  */
 function parseInviteRoster(raw: string): InviteRosterRow[] {
   const rows = raw
@@ -20,11 +19,13 @@ function parseInviteRoster(raw: string): InviteRosterRow[] {
     .filter(Boolean);
   const out: InviteRosterRow[] = [];
   for (const row of rows) {
-    const [emailRaw, passwordRaw, codeRaw] = row.split(",").map((s) => s.trim());
-    if (!emailRaw || !passwordRaw || !codeRaw) continue;
+    const parts = row.split(",").map((s) => s.trim());
+    // 신규 형식: email,code / 구형 형식: email,password,code (password는 무시)
+    const emailRaw = parts[0];
+    const codeRaw = parts.length >= 3 ? parts[2] : parts[1];
+    if (!emailRaw || !codeRaw) continue;
     out.push({
       email: emailRaw.toLowerCase(),
-      password: passwordRaw,
       code: codeRaw,
     });
   }
@@ -63,8 +64,7 @@ function inviteMatches(provided: string, expected: string): boolean {
 
 export function verifySignupInvite(
   bodyInvite: unknown,
-  bodyEmail?: unknown,
-  bodyPassword?: unknown
+  bodyEmail?: unknown
 ): { ok: true } | { ok: false; error: string; message: string } {
   const open = process.env.AUTH_SIGNUP_ENABLED === "true";
   if (open) return { ok: true };
@@ -75,15 +75,13 @@ export function verifySignupInvite(
       typeof bodyEmail === "string" ? bodyEmail.trim().toLowerCase() : "";
     const providedCode =
       typeof bodyInvite === "string" ? bodyInvite.trim() : "";
-    const providedPassword =
-      typeof bodyPassword === "string" ? bodyPassword.trim() : "";
 
-    if (!email || !providedCode || !providedPassword) {
+    if (!email || !providedCode) {
       return {
         ok: false,
         error: "INVITE_REQUIRED",
         message:
-          "초대받은 이메일·비밀번호·초대 코드를 모두 입력해 주세요.",
+          "초대받은 이메일과 초대 코드를 모두 입력해 주세요.",
       };
     }
 
@@ -100,14 +98,6 @@ export function verifySignupInvite(
         ok: false,
         error: "INVITE_INVALID",
         message: "초대 코드가 올바르지 않습니다.",
-      };
-    }
-    if (!inviteMatches(providedPassword, row.password)) {
-      return {
-        ok: false,
-        error: "INVITE_INVALID",
-        message:
-          "초대 시 전달된 비밀번호와 다릅니다. 관리자에게 재발급을 요청해 주세요.",
       };
     }
     return { ok: true };

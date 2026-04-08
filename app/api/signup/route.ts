@@ -67,11 +67,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
   }
 
-  const inviteCheck = verifySignupInvite(
-    body.inviteCode,
-    body.email,
-    body.password
-  );
+  const inviteCheck = verifySignupInvite(body.inviteCode, body.email);
   if (!inviteCheck.ok) {
     return NextResponse.json(
       { error: inviteCheck.error, message: inviteCheck.message },

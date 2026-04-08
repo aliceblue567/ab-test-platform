@@ -89,7 +89,7 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
         <CardHeader>
           <h1 className="text-2xl font-bold text-center">계정 만들기</h1>
           <p className="text-sm text-muted-foreground text-center">
-            팀에서 받은 초대 정보(이메일·비밀번호·코드)로 등록하세요
+            팀에서 받은 초대 정보(이메일·코드)로 등록하고 비밀번호를 새로 설정하세요
           </p>
         </CardHeader>
         <CardContent>
@@ -184,7 +184,7 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
             <code className="rounded bg-muted px-1">AUTH_SIGNUP_INVITES</code>
             {" "}값을{" "}
             <code className="rounded bg-muted px-1">
-              email,password,code
+              email,code
             </code>
             {" "}형식(줄바꿈 구분)으로 넣어 사용하세요.
           </p>
