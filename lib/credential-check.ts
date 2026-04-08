@@ -10,6 +10,33 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { USERS_PASSWORD_HASH_SQL } from "@/lib/db-password-hash-migration";
 
+function missingColumnMeta(e: Prisma.PrismaClientKnownRequestError): string | null {
+  const raw = (e.meta as { column?: unknown } | undefined)?.column;
+  if (typeof raw !== "string") return null;
+  const parts = raw.split(".");
+  return parts[parts.length - 1] ?? null;
+}
+
+function fixSqlForMissingUserColumn(column: string | null): string {
+  if (column === "password_hash") return USERS_PASSWORD_HASH_SQL;
+  if (column === "role") {
+    return `DO $$
+BEGIN
+  CREATE TYPE "UserRole" AS ENUM ('admin','member','viewer');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "role" "UserRole" NOT NULL DEFAULT 'admin';`;
+  }
+  if (column === "createdAt") {
+    return 'ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now();';
+  }
+  if (column === "updatedAt") {
+    return 'ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now();';
+  }
+  return USERS_PASSWORD_HASH_SQL;
+}
+
 function norm(s: string): string {
   return (
     String(s ?? "")
@@ -37,6 +64,7 @@ export type CredentialCheckResult = {
   dbPasswordMatch?: boolean;
   /** Prisma P2022 — 배포 DB에 마이그레이션 미적용 */
   missingPasswordHashColumn?: boolean;
+  missingUserColumn?: string;
   fixSql?: string;
   debugMismatch?: {
     inputEmailLen: number;
@@ -93,6 +121,7 @@ export async function verifyLoginCredentials(
 
   let dbPasswordMatch: boolean | undefined;
   let missingPasswordHashColumn = false;
+  let missingUserColumn: string | undefined;
 
   if (!match && inputEmail.length > 0 && inputPassword.length > 0) {
     try {
@@ -120,6 +149,7 @@ export async function verifyLoginCredentials(
         e.code === "P2022"
       ) {
         missingPasswordHashColumn = true;
+        missingUserColumn = missingColumnMeta(e) ?? undefined;
       } else {
         throw e;
       }
@@ -141,7 +171,8 @@ export async function verifyLoginCredentials(
     ...(missingPasswordHashColumn
       ? {
           missingPasswordHashColumn: true,
-          fixSql: USERS_PASSWORD_HASH_SQL,
+          ...(missingUserColumn ? { missingUserColumn } : {}),
+          fixSql: fixSqlForMissingUserColumn(missingUserColumn ?? null),
         }
       : {}),
     debugMismatch,

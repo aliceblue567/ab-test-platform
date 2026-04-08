@@ -5,6 +5,33 @@ import { prisma } from "@/lib/db";
 import { USERS_PASSWORD_HASH_SQL } from "@/lib/db-password-hash-migration";
 import { isSignupAvailable, verifySignupInvite } from "@/lib/signup-gate";
 
+function missingColumnMeta(e: Prisma.PrismaClientKnownRequestError): string | null {
+  const raw = (e.meta as { column?: unknown } | undefined)?.column;
+  if (typeof raw !== "string") return null;
+  const parts = raw.split(".");
+  return parts[parts.length - 1] ?? null;
+}
+
+function fixSqlForMissingUserColumn(column: string | null): string {
+  if (column === "password_hash") return USERS_PASSWORD_HASH_SQL;
+  if (column === "role") {
+    return `DO $$
+BEGIN
+  CREATE TYPE "UserRole" AS ENUM ('admin','member','viewer');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "role" "UserRole" NOT NULL DEFAULT 'admin';`;
+  }
+  if (column === "createdAt") {
+    return 'ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now();';
+  }
+  if (column === "updatedAt") {
+    return 'ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now();';
+  }
+  return USERS_PASSWORD_HASH_SQL;
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -99,16 +126,21 @@ export async function POST(req: NextRequest) {
       select: { id: true },
     });
   } catch (e) {
-    const msg =
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2022"
-        ? "DB에 password_hash 컬럼이 없습니다. Supabase SQL로 컬럼을 추가한 뒤 다시 시도해 주세요."
-        : "가입 처리 중 오류가 발생했습니다.";
+    const isSchemaErr =
+      e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022";
+    const missingColumn =
+      isSchemaErr && e instanceof Prisma.PrismaClientKnownRequestError
+        ? missingColumnMeta(e)
+        : null;
+    const msg = isSchemaErr
+      ? `DB 스키마가 최신이 아닙니다.${missingColumn ? ` 누락 컬럼: ${missingColumn}` : ""} SQL을 적용한 뒤 다시 시도해 주세요.`
+      : "가입 처리 중 오류가 발생했습니다.";
     return NextResponse.json(
       {
         error: "DB_SCHEMA",
         message: msg,
-        fixSql: USERS_PASSWORD_HASH_SQL,
+        fixSql: fixSqlForMissingUserColumn(missingColumn),
+        ...(missingColumn ? { missingColumn } : {}),
       },
       { status: 503 }
     );

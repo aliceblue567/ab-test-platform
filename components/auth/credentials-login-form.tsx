@@ -129,11 +129,15 @@ function LoginFormInner({
         return;
       }
       if (data?.debug?.missingPasswordHashColumn) {
+        const missingCol =
+          typeof data?.debug?.missingUserColumn === "string"
+            ? data.debug.missingUserColumn
+            : "password_hash";
         setSchemaFixSql(
           typeof data.debug.fixSql === "string" ? data.debug.fixSql : null
         );
         setError(
-          "DB에 password_hash 컬럼이 없어 이메일·비밀번호 로그인을 할 수 없습니다. Supabase SQL Editor에서 아래 SQL을 실행한 뒤 다시 시도해 주세요. (또는 배포 파이프라인에서 npx prisma migrate deploy)"
+          `DB 스키마 누락(${missingCol})으로 이메일·비밀번호 로그인을 할 수 없습니다. SQL Editor에서 아래 SQL을 실행한 뒤 다시 시도해 주세요.`
         );
         if (showDiagnose) {
           setDiagnose(

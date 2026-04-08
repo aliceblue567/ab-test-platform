@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
             knownMatch: result.knownMatch,
             dbPasswordMatch: result.dbPasswordMatch,
             missingPasswordHashColumn: result.missingPasswordHashColumn,
+            missingUserColumn: result.missingUserColumn,
             ...(result.fixSql ? { fixSql: result.fixSql } : {}),
           },
         },
