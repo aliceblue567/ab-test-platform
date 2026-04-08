@@ -89,7 +89,7 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
         <CardHeader>
           <h1 className="text-2xl font-bold text-center">계정 만들기</h1>
           <p className="text-sm text-muted-foreground text-center">
-            팀에서 받은 초대만 사용하세요
+            팀에서 받은 초대 정보(이메일·비밀번호·코드)로 등록하세요
           </p>
         </CardHeader>
         <CardContent>
@@ -179,6 +179,14 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
             가입이 막혀 있으면 관리자에게 문의하세요. Vercel에는 보통{" "}
             <code className="rounded bg-muted px-1">AUTH_SIGNUP_INVITE_CODE</code>
             만 넣으면 됩니다.
+            <br />
+            여러 명 초대는{" "}
+            <code className="rounded bg-muted px-1">AUTH_SIGNUP_INVITES</code>
+            {" "}값을{" "}
+            <code className="rounded bg-muted px-1">
+              email,password,code
+            </code>
+            {" "}형식(줄바꿈 구분)으로 넣어 사용하세요.
           </p>
           <div className="mt-4 text-center">
             <Link

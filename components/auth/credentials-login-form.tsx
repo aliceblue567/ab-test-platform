@@ -224,7 +224,7 @@ function LoginFormInner({
               {loading ? "로그인 중..." : "로그인"}
             </Button>
 
-            {isWorkspace && signupEnabled && (
+            {isWorkspace && (
               <p className="text-center text-sm">
                 <Link
                   href={signupHref}
