@@ -132,17 +132,33 @@ export async function POST(req: NextRequest) {
       isSchemaErr && e instanceof Prisma.PrismaClientKnownRequestError
         ? missingColumnMeta(e)
         : null;
-    const msg = isSchemaErr
-      ? `DB 스키마가 최신이 아닙니다.${missingColumn ? ` 누락 컬럼: ${missingColumn}` : ""} SQL을 적용한 뒤 다시 시도해 주세요.`
-      : "가입 처리 중 오류가 발생했습니다.";
+    if (isSchemaErr) {
+      return NextResponse.json(
+        {
+          error: "DB_SCHEMA",
+          message: `DB 스키마가 최신이 아닙니다.${missingColumn ? ` 누락 컬럼: ${missingColumn}` : ""} SQL을 적용한 뒤 다시 시도해 주세요.`,
+          fixSql: fixSqlForMissingUserColumn(missingColumn),
+          ...(missingColumn ? { missingColumn } : {}),
+        },
+        { status: 503 }
+      );
+    }
+
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      return NextResponse.json(
+        {
+          error: "DB_ERROR",
+          code: e.code,
+          message:
+            "가입 처리 중 DB 오류가 발생했습니다. 관리자에게 오류 코드를 전달해 주세요.",
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
-      {
-        error: "DB_SCHEMA",
-        message: msg,
-        fixSql: fixSqlForMissingUserColumn(missingColumn),
-        ...(missingColumn ? { missingColumn } : {}),
-      },
-      { status: 503 }
+      { error: "DB_ERROR", message: "가입 처리 중 오류가 발생했습니다." },
+      { status: 500 }
     );
   }
 
