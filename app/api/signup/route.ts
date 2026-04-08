@@ -32,6 +32,17 @@ ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "role" "UserRole" NOT NULL D
   return USERS_PASSWORD_HASH_SQL;
 }
 
+function userRoleEnumFixSql(): string {
+  return `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'UserRole') THEN
+    CREATE TYPE "UserRole" AS ENUM ('admin','member','viewer');
+  END IF;
+END $$;
+ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'member';
+ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'viewer';`;
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -126,6 +137,7 @@ export async function POST(req: NextRequest) {
       select: { id: true },
     });
   } catch (e) {
+    console.error("[signup] failed", e);
     const isSchemaErr =
       e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022";
     const missingColumn =
@@ -156,8 +168,49 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (e instanceof Prisma.PrismaClientUnknownRequestError) {
+      const msg = e.message || "";
+      if (msg.includes('invalid input value for enum "UserRole"')) {
+        return NextResponse.json(
+          {
+            error: "DB_SCHEMA",
+            code: "ENUM_USERROLE_INVALID",
+            message:
+              'DB enum "UserRole"에 member/viewer 값이 없습니다. SQL을 적용한 뒤 다시 시도해 주세요.',
+            fixSql: userRoleEnumFixSql(),
+          },
+          { status: 503 }
+        );
+      }
+      return NextResponse.json(
+        {
+          error: "DB_ERROR",
+          code: "DB_UNKNOWN",
+          message:
+            "가입 처리 중 알 수 없는 DB 오류가 발생했습니다. 관리자에게 문의해 주세요.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (e instanceof Prisma.PrismaClientInitializationError) {
+      return NextResponse.json(
+        {
+          error: "DB_CONNECTION",
+          code: "DB_INIT",
+          message:
+            "DB 연결에 실패했습니다. DATABASE_URL 또는 DB 네트워크 접근을 확인해 주세요.",
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "DB_ERROR", message: "가입 처리 중 오류가 발생했습니다." },
+      {
+        error: "DB_ERROR",
+        code: "UNKNOWN",
+        message: "가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+      },
       { status: 500 }
     );
   }

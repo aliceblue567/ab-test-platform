@@ -19,12 +19,14 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
   const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [fixSql, setFixSql] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setFixSql(null);
+    setErrorCode(null);
     if (password !== confirm) {
       setError("비밀번호 확인이 일치하지 않습니다.");
       return;
@@ -50,6 +52,9 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
             ? signupData.message
             : "가입에 실패했습니다."
         );
+        if (typeof signupData.code === "string") {
+          setErrorCode(signupData.code);
+        }
         if (typeof signupData.fixSql === "string") {
           setFixSql(signupData.fixSql);
         }
@@ -100,6 +105,11 @@ function SignupForm({ inviteRequired }: { inviteRequired: boolean }) {
                 <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive whitespace-pre-line">
                   {error}
                 </div>
+                {errorCode && (
+                  <p className="text-xs text-destructive/90">
+                    오류 코드: {errorCode}
+                  </p>
+                )}
                 {fixSql && (
                   <pre className="max-h-40 overflow-auto rounded-md border border-border bg-muted/50 p-2 text-xs text-foreground">
                     {fixSql}
