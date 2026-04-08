@@ -33,6 +33,14 @@ export function mapGeminiErrorToUserMessage(err: unknown): string {
   ) {
     return "Gemini 요청 한도에 도달했습니다. 잠시 후 다시 시도하세요.";
   }
+  if (
+    low.includes("503") ||
+    low.includes("unavailable") ||
+    low.includes("high demand") ||
+    low.includes("currently experiencing high demand")
+  ) {
+    return "Gemini 모델 사용량이 높아 일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+  }
   if (low.includes("safety") || low.includes("blocked")) {
     return "콘텐츠 정책으로 응답이 제한되었습니다. 다른 이미지로 시도해 보세요.";
   }
