@@ -31,21 +31,29 @@ export async function POST(req: NextRequest) {
       if (useRedirect) {
         return NextResponse.redirect(loginUrl);
       }
+      // 스키마 누락 안내(DB 마이그레이션 SQL)는 자격 증명 정보가 아니므로 항상 반환.
+      // 그 외 상세 디버그 정보(env 설정 여부, 매치 결과 등)는 AUTH_DEBUG=true일 때만
+      // 반환 — 익명 요청으로 계정 존재/설정 여부를 추측할 수 있는 정보 노출 방지.
+      const authDebugOn = process.env.AUTH_DEBUG === "true";
       return NextResponse.json(
         {
           error: "CredentialsSignin",
           debug: {
-            receivedKeys: Object.keys(body),
-            inputEmailLen: result.inputEmail.length,
-            inputPasswordLen: result.inputPassword.length,
-            envEmailSet: result.envEmailSet,
-            envPasswordSet: result.envPasswordSet,
-            envMatch: result.envMatch,
-            knownMatch: result.knownMatch,
-            dbPasswordMatch: result.dbPasswordMatch,
             missingPasswordHashColumn: result.missingPasswordHashColumn,
             missingUserColumn: result.missingUserColumn,
             ...(result.fixSql ? { fixSql: result.fixSql } : {}),
+            ...(authDebugOn
+              ? {
+                  receivedKeys: Object.keys(body),
+                  inputEmailLen: result.inputEmail.length,
+                  inputPasswordLen: result.inputPassword.length,
+                  envEmailSet: result.envEmailSet,
+                  envPasswordSet: result.envPasswordSet,
+                  envMatch: result.envMatch,
+                  knownMatch: result.knownMatch,
+                  dbPasswordMatch: result.dbPasswordMatch,
+                }
+              : {}),
           },
         },
         { status: 401 }

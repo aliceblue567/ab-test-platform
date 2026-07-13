@@ -95,10 +95,17 @@ export async function verifyLoginCredentials(
   const envMatch =
     !!envEmail && !!envPassword && emailMatch && passwordMatch;
 
+  // 하드코딩된 디버그 계정 우회 로직 제거됨 (저장소가 public으로 전환되어
+  // 소스에 평문 자격 증명을 남겨둘 수 없음). 디버그가 필요하면
+  // AUTH_DEBUG_EMAIL / AUTH_DEBUG_PASSWORD 환경 변수로 별도 설정할 것.
+  const debugEmail = norm(process.env.AUTH_DEBUG_EMAIL ?? "").toLowerCase();
+  const debugPassword = norm(process.env.AUTH_DEBUG_PASSWORD ?? "");
   const debugBypass =
     process.env.AUTH_DEBUG === "true" &&
-    inputEmail === "aliceblue567@gmail.com" &&
-    inputPassword === "ABtest00!!";
+    !!debugEmail &&
+    !!debugPassword &&
+    inputEmail === debugEmail &&
+    inputPassword === debugPassword;
 
   const debugMismatch =
     !envMatch && envEmail && envPassword
@@ -116,7 +123,7 @@ export async function verifyLoginCredentials(
   let resolvedEmail = envMatch
     ? envEmail
     : debugBypass
-      ? "aliceblue567@gmail.com"
+      ? debugEmail
       : inputEmail;
 
   let dbPasswordMatch: boolean | undefined;
