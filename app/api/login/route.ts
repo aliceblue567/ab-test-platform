@@ -81,7 +81,14 @@ export async function POST(req: NextRequest) {
     const isSecure =
       req.nextUrl.protocol === "https:" ||
       req.headers.get("x-forwarded-proto") === "https";
-    const secret = process.env.AUTH_SECRET || "dev-secret-replace-in-production";
+    const secret =
+      process.env.AUTH_SECRET ||
+      (process.env.NODE_ENV === "development"
+        ? "dev-secret-replace-in-production"
+        : undefined);
+    if (!secret) {
+      throw new Error("AUTH_SECRET is required in production");
+    }
     const secureToken = await encode({
       token: buildCredentialsJwtFields(user),
       secret,
