@@ -1,5 +1,9 @@
 /// <reference types="@figma/plugin-typings" />
 
+// 빌드 시 esbuild define으로 주입됨 (build.js 참고). 팀 배포용 빌드에만 값이 채워지고,
+// 이 소스 파일이나 git 커밋에는 실제 키가 절대 들어가지 않음.
+declare const __DEFAULT_API_KEY__: string;
+
 type Settings = {
   apiKey: string;
   endpoint: string;
@@ -31,7 +35,9 @@ async function loadSettings(): Promise<Settings> {
   const stored = (await figma.clientStorage.getAsync(SETTINGS_KEY)) as
     | Settings
     | undefined;
-  return stored ?? { apiKey: "", endpoint: DEFAULT_ENDPOINT };
+  return (
+    stored ?? { apiKey: __DEFAULT_API_KEY__, endpoint: DEFAULT_ENDPOINT }
+  );
 }
 
 async function saveSettings(settings: Settings): Promise<void> {
