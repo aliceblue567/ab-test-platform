@@ -6,9 +6,7 @@
   "ui": "dist/ui.html",
   "editorType": ["figma"],
   "networkAccess": {
-    "allowedDomains": [
-      "https://ab-test-platform.vercel.app",
-      "http://localhost:3000"
-    ]
+    "allowedDomains": ["https://ab-test-platform.vercel.app"],
+    "devAllowedDomains": ["http://localhost:3000"]
   }
 }
