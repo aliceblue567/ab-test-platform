@@ -46,7 +46,11 @@ export async function verifyUxCheckApiKey(
         .eq("id", data.id);
       return { ok: true, keyId: `db:${data.id}` };
     }
-  } catch {
+  } catch (e) {
+    console.error(
+      "[verifyUxCheckApiKey] Supabase error:",
+      e instanceof Error ? e.message : e
+    );
     return { ok: false, message: MSG_INVALID };
   }
 

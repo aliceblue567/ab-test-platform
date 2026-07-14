@@ -1,8 +1,8 @@
 /**
- * Gemini 호출은 이 모듈(서버 전용)에서만 수행합니다.
- * GEMINI_API_KEY는 클라이언트에 노출되지 않습니다 — API Route에서만 import 하세요.
+ * Claude API 호출은 이 모듈(서버 전용)에서만 수행합니다.
+ * ANTHROPIC_API_KEY는 클라이언트에 노출되지 않습니다 — API Route에서만 import 하세요.
  */
-import { GoogleGenAI } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { GuidelineRow } from "@/lib/ux-writing/guidelines";
 import {
@@ -62,7 +62,7 @@ const AI_TIMEOUT_MS = Math.min(
   Math.max(Number(process.env.UX_WRITING_AI_TIMEOUT_MS) || 90_000, 10_000),
   180_000
 );
-const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-opus-4-8";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -87,7 +87,7 @@ export async function runUxWritingCheck(
   userText: string,
   guidelines: GuidelineRow[]
 ): Promise<UxCheckResult> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new UxWritingCheckFailed(
       "서버 설정 오류입니다. 관리자에게 문의하세요.",
@@ -96,7 +96,7 @@ export async function runUxWritingCheck(
     );
   }
 
-  const client = new GoogleGenAI({ apiKey });
+  const client = new Anthropic({ apiKey });
 
   const safeUser = sanitizePromptText(userText, MAX_USER);
   const guideBlock = formatGuidelinesForSystemPrompt(guidelines);
@@ -115,21 +115,26 @@ ${RESULT_SCHEMA_HINT}
 """`;
 
   try {
-    // Gemini 응답을 JSON으로 강제하고, 애플리케이션에서 다시 검증한다.
+    // Claude 응답을 JSON 스키마로 강제하고, 애플리케이션에서 다시 검증한다.
     const completion = await withTimeout(
-      client.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseJsonSchema: modelOutputJsonSchema,
-          temperature: 0.3,
+      client.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 4096,
+        output_config: {
+          format: {
+            type: "json_schema",
+            schema: modelOutputJsonSchema,
+          },
         },
+        messages: [{ role: "user", content: prompt }],
       }),
       AI_TIMEOUT_MS
     );
 
-    const raw = completion.text;
+    const textBlock = completion.content.find(
+      (block): block is Anthropic.TextBlock => block.type === "text"
+    );
+    const raw = textBlock?.text;
     if (!raw) {
       throw new UxWritingCheckFailed(
         "AI 응답이 비어 있습니다. 잠시 후 다시 시도해 주세요.",

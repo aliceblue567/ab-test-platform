@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<style>
+  :root {
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #fff;
+  }
+  .container { padding: 12px; }
+  h1 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+  .settings {
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .settings summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 11px;
+    color: #666;
+    outline: none;
+  }
+  label {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin: 8px 0 4px;
+  }
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d5d5d5;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 12px;
+  }
+  .btn-primary {
+    background: #18a0fb;
+    color: #fff;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .btn-primary:disabled {
+    background: #b7dffb;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: #f0f0f0;
+    color: #1a1a1a;
+    margin-top: 6px;
+  }
+  .btn-apply {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  .btn-apply.applied {
+    background: #0f9d58;
+  }
+  .btn-apply:disabled {
+    background: #ccc;
+    cursor: default;
+  }
+  .status {
+    font-size: 11px;
+    color: #666;
+    margin: 8px 0;
+    min-height: 14px;
+  }
+  .error-banner {
+    background: #fdecea;
+    color: #c0392b;
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  .results {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  .card {
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .card.no-change {
+    opacity: 0.55;
+  }
+  .card .original {
+    font-size: 11px;
+    color: #999;
+    text-decoration: line-through;
+    word-break: break-all;
+  }
+  .card .suggestion {
+    font-size: 12px;
+    font-weight: 600;
+    margin: 4px 0;
+    word-break: break-all;
+  }
+  .card .reason {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 6px;
+  }
+  .badge {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-bottom: 6px;
+  }
+  .card .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card.error {
+    border-color: #f5c2c0;
+    background: #fff8f8;
+  }
+  .card.error .original {
+    text-decoration: none;
+    color: #c0392b;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>하나투어 UX 라이팅 검수</h1>
+
+  <details class="settings" id="settingsBox">
+    <summary>API 설정</summary>
+    <label for="apiKey">API 키</label>
+    <input type="password" id="apiKey" placeholder="uxw_..." />
+    <label for="endpoint">서버 URL</label>
+    <input type="text" id="endpoint" placeholder="https://ab-test-platform.vercel.app" />
+    <button class="btn-secondary" id="saveBtn">저장</button>
+  </details>
+
+  <button class="btn-primary" id="runBtn">선택 영역 검수하기</button>
+  <div class="status" id="status"></div>
+  <div id="errorBanner"></div>
+
+  <div class="results" id="results"></div>
+</div>
+
+<script>
+  const settingsBox = document.getElementById("settingsBox");
+  const apiKeyInput = document.getElementById("apiKey");
+  const endpointInput = document.getElementById("endpoint");
+  const saveBtn = document.getElementById("saveBtn");
+  const runBtn = document.getElementById("runBtn");
+  const statusEl = document.getElementById("status");
+  const errorBanner = document.getElementById("errorBanner");
+  const resultsEl = document.getElementById("results");
+
+  let total = 0;
+  let done = 0;
+
+  function post(msg) {
+    parent.postMessage({ pluginMessage: msg }, "*");
+  }
+
+  function showError(message) {
+    errorBanner.innerHTML =
+      '<div class="error-banner">' + escapeHtml(message) + "</div>";
+  }
+
+  function clearError() {
+    errorBanner.innerHTML = "";
+  }
+
+  function escapeHtml(s) {
+    const div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function updateStatus() {
+    if (total === 0) {
+      statusEl.textContent = "";
+      return;
+    }
+    statusEl.textContent = done + " / " + total + " 검수 완료";
+  }
+
+  function addResultCard(msg) {
+    const noChange =
+      !msg.violated_rule && msg.suggestion === msg.original;
+    const card = document.createElement("div");
+    card.className = "card" + (noChange ? " no-change" : "");
+    card.dataset.nodeId = msg.nodeId;
+
+    const badge = msg.violated_rule
+      ? '<span class="badge">' + escapeHtml(msg.violated_rule) + "</span><br/>"
+      : "";
+
+    card.innerHTML =
+      badge +
+      '<div class="original">' + escapeHtml(msg.original) + "</div>" +
+      '<div class="suggestion">' + escapeHtml(msg.suggestion) + "</div>" +
+      '<div class="reason">' + escapeHtml(msg.reason || "") + "</div>" +
+      '<div class="row">' +
+      '<button class="btn-apply" ' +
+      (noChange ? "disabled" : "") +
+      ">" +
+      (noChange ? "변경 없음" : "적용하기") +
+      "</button>" +
+      "</div>";
+
+    if (!noChange) {
+      const btn = card.querySelector(".btn-apply");
+      btn.addEventListener("click", () => {
+        btn.disabled = true;
+        btn.textContent = "적용 중...";
+        post({ type: "apply", nodeId: msg.nodeId, newText: msg.suggestion });
+      });
+    }
+
+    resultsEl.appendChild(card);
+  }
+
+  function addErrorCard(msg) {
+    const card = document.createElement("div");
+    card.className = "card error";
+    card.innerHTML =
+      '<div class="original">' + escapeHtml(msg.original) + "</div>" +
+      '<div class="reason">⚠️ ' + escapeHtml(msg.message) + "</div>";
+    resultsEl.appendChild(card);
+  }
+
+  saveBtn.addEventListener("click", () => {
+    post({
+      type: "save-settings",
+      settings: {
+        apiKey: apiKeyInput.value.trim(),
+        endpoint: endpointInput.value.trim() || "https://ab-test-platform.vercel.app",
+      },
+    });
+  });
+
+  runBtn.addEventListener("click", () => {
+    clearError();
+    resultsEl.innerHTML = "";
+    total = 0;
+    done = 0;
+    updateStatus();
+    runBtn.disabled = true;
+    runBtn.textContent = "검수 중...";
+    post({ type: "run-check" });
+  });
+
+  window.onmessage = (event) => {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    switch (msg.type) {
+      case "settings":
+        apiKeyInput.value = msg.settings.apiKey || "";
+        endpointInput.value = msg.settings.endpoint || "";
+        if (!msg.settings.apiKey) settingsBox.open = true;
+        break;
+      case "settings-saved":
+        settingsBox.open = false;
+        break;
+      case "start":
+        total = msg.total;
+        done = 0;
+        updateStatus();
+        break;
+      case "result":
+        done += 1;
+        updateStatus();
+        addResultCard(msg);
+        break;
+      case "result-error":
+        done += 1;
+        updateStatus();
+        addErrorCard(msg);
+        break;
+      case "done":
+        runBtn.disabled = false;
+        runBtn.textContent = "선택 영역 검수하기";
+        break;
+      case "error":
+        runBtn.disabled = false;
+        runBtn.textContent = "선택 영역 검수하기";
+        showError(msg.message);
+        break;
+      case "applied": {
+        const card = resultsEl.querySelector(
+          '.card[data-node-id="' + msg.nodeId + '"]'
+        );
+        if (card) {
+          const btn = card.querySelector(".btn-apply");
+          btn.textContent = "적용됨";
+          btn.classList.add("applied");
+        }
+        break;
+      }
+      case "apply-error": {
+        const card = resultsEl.querySelector(
+          '.card[data-node-id="' + msg.nodeId + '"]'
+        );
+        if (card) {
+          const btn = card.querySelector(".btn-apply");
+          btn.disabled = false;
+          btn.textContent = "적용하기";
+        }
+        showError(msg.message);
+        break;
+      }
+    }
+  };
+
+  post({ type: "ui-ready" });
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "하나투어 UX 라이팅 검수",
+  "id": "hanatour-ux-writing-check",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://ab-test-platform.vercel.app",
+      "http://localhost:3000"
+    ]
+  }
+}

@@ -21,7 +21,9 @@
 | `AUTH_ADMIN_PASSWORD` | 관리자 로그인 비밀번호 |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL (공개되어도 되는 값) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **서버 전용**. Supabase **service_role** 키 (절대 `NEXT_PUBLIC_` 붙이지 말 것) |
-| `GEMINI_API_KEY` | Google AI Studio 등에서 발급 (UX 검수) |
+| `ANTHROPIC_API_KEY` | Anthropic Console에서 발급 (UX 라이팅 검수, `/api/v1/ux-writing/check`) |
+| `ANTHROPIC_MODEL` | (선택) 기본값 `claude-opus-4-8` |
+| `GEMINI_API_KEY` | Google AI Studio 등에서 발급 (UX 인사이트 랩 화면 분석 전용, UX 라이팅과 별도) |
 
 ### 관리자 1차 게이트 (팀 공유 테스트용)
 
