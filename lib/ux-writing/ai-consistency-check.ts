@@ -67,7 +67,7 @@ const AI_TIMEOUT_MS = Math.min(
   Math.max(Number(process.env.UX_WRITING_AI_TIMEOUT_MS) || 90_000, 10_000),
   180_000
 );
-const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-opus-4-8";
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-5";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -106,7 +106,7 @@ export async function runConsistencyCheck(
     .map((it) => `[${it.id}] ${sanitizePromptText(it.text, MAX_TEXT)}`)
     .join("\n");
 
-  const prompt = `당신은 UX 라이팅 일관성 검수 전문가입니다. 아래는 하나의 제품(또는 화면 세트)에서 수집된 UI 텍스트 목록입니다. 각 줄은 "[id] 텍스트" 형식이며, 서로 다른 화면·위치에서 온 텍스트일 수 있습니다.
+  const systemPrompt = `당신은 UX 라이팅 일관성 검수 전문가입니다. 사용자가 하나의 제품(또는 화면 세트)에서 수집된 UI 텍스트 목록을 줄 것입니다. 각 줄은 "[id] 텍스트" 형식이며, 서로 다른 화면·위치에서 온 텍스트일 수 있습니다.
 
 ## 검사 목표
 같은 기능이나 의미를 가리키는데 서로 다른 표현을 쓰고 있는 항목들을 찾아주세요.
@@ -115,12 +115,12 @@ export async function runConsistencyCheck(
 
 ## 출력 규칙
 JSON 객체 하나만 반환합니다. "issues" 배열의 각 항목은 다음을 포함합니다:
-- item_ids: 문제가 되는 항목들의 id 목록 (반드시 위 목록에 있는 id만, 2개 이상)
+- item_ids: 문제가 되는 항목들의 id 목록 (반드시 입력 목록에 있는 id만, 2개 이상)
 - summary: 무엇이 왜 일관성 문제인지 설명하는 간결한 한국어 문장
 - suggested_term: 통일해서 사용할 것을 제안하는 표현
-일관성 문제가 없으면 issues를 빈 배열로 반환하세요.
+일관성 문제가 없으면 issues를 빈 배열로 반환하세요.`;
 
-## 텍스트 목록
+  const prompt = `## 텍스트 목록
 ${listBlock}`;
 
   try {
@@ -128,6 +128,9 @@ ${listBlock}`;
       client.messages.create({
         model: CLAUDE_MODEL,
         max_tokens: 8192,
+        system: [
+          { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+        ],
         output_config: {
           format: {
             type: "json_schema",

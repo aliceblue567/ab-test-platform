@@ -62,7 +62,9 @@ const AI_TIMEOUT_MS = Math.min(
   Math.max(Number(process.env.UX_WRITING_AI_TIMEOUT_MS) || 90_000, 10_000),
   180_000
 );
-const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-opus-4-8";
+// 가이드라인 준수 여부 판정 수준의 작업이라 Opus보다 저렴한 모델을 기본값으로 사용.
+// 더 강력한 모델이 필요하면 Vercel 환경변수 ANTHROPIC_MODEL로 덮어쓸 수 있음.
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-5";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -101,16 +103,18 @@ export async function runUxWritingCheck(
   const safeUser = sanitizePromptText(userText, MAX_USER);
   const guideBlock = formatGuidelinesForSystemPrompt(guidelines);
 
-  const prompt = `당신은 UX 라이팅 검수 전문가입니다. 아래 회사 가이드라인을 반드시 준수하여 사용자의 문구를 검토합니다.
+  // 가이드라인 + 출력 규칙은 호출마다 동일하므로 system + cache_control로 캐싱해
+  // 같은 프로세스에서 연달아 호출될 때(가이드라인 검수 배치 등) 토큰 비용을 줄인다.
+  const systemPrompt = `당신은 UX 라이팅 검수 전문가입니다. 아래 회사 가이드라인을 반드시 준수하여 사용자의 문구를 검토합니다.
 
 ## 회사 UX 라이팅 가이드라인
 ${guideBlock}
 
 ## 출력 규칙
 ${RESULT_SCHEMA_HINT}
-가이드 위반이 없으면 suggestion은 원문과 같게 두고, violated_rule은 빈 문자열로 두어도 됩니다.
+가이드 위반이 없으면 suggestion은 원문과 같게 두고, violated_rule은 빈 문자열로 두어도 됩니다.`;
 
-## 검토 대상 문구
+  const prompt = `## 검토 대상 문구
 """${safeUser.replace(/"""/g, '"')}
 """`;
 
@@ -120,6 +124,9 @@ ${RESULT_SCHEMA_HINT}
       client.messages.create({
         model: CLAUDE_MODEL,
         max_tokens: 4096,
+        system: [
+          { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+        ],
         output_config: {
           format: {
             type: "json_schema",

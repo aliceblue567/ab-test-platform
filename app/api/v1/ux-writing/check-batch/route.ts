@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { runConsistencyCheck } from "@/lib/ux-writing/ai-consistency-check";
+import { fetchGuidelines } from "@/lib/ux-writing/guidelines";
+import {
+  runUxWritingCheckBatch,
+  MAX_BATCH_ITEMS,
+  MAX_BATCH_TOTAL_CHARS,
+} from "@/lib/ux-writing/ai-check-batch";
 import { verifyUxCheckApiKey } from "@/lib/ux-writing/verify-api-key";
 import { resolveUxWritingCors } from "@/lib/ux-writing/cors";
 import { getClientIp } from "@/lib/ux-writing/request-ip";
@@ -18,9 +23,6 @@ import { toApiErrorMessage } from "@/lib/api-error";
 
 export const maxDuration = 120;
 
-const MAX_ITEMS = 300;
-const MAX_TOTAL_CHARS = 60_000;
-
 const bodySchema = z.object({
   items: z
     .array(
@@ -29,8 +31,8 @@ const bodySchema = z.object({
         text: z.string().min(1).max(2000),
       })
     )
-    .min(2, "비교할 텍스트가 2개 이상 필요합니다.")
-    .max(MAX_ITEMS, `한 번에 최대 ${MAX_ITEMS}개까지 검사할 수 있습니다.`),
+    .min(1)
+    .max(MAX_BATCH_ITEMS, `한 번에 최대 ${MAX_BATCH_ITEMS}개까지 검수할 수 있습니다.`),
 });
 
 export async function OPTIONS(request: Request) {
@@ -122,11 +124,11 @@ export async function POST(request: Request) {
     (sum, it) => sum + it.text.length,
     0
   );
-  if (totalChars > MAX_TOTAL_CHARS) {
+  if (totalChars > MAX_BATCH_TOTAL_CHARS) {
     return NextResponse.json(
       {
         error: "Bad Request",
-        message: `텍스트 총 길이가 너무 깁니다 (최대 ${MAX_TOTAL_CHARS}자). 범위를 줄여서 다시 시도해 주세요.`,
+        message: `텍스트 총 길이가 너무 깁니다 (최대 ${MAX_BATCH_TOTAL_CHARS}자). 범위를 줄여서 다시 시도해 주세요.`,
       },
       { status: 400, headers: cors.headers }
     );
@@ -134,9 +136,13 @@ export async function POST(request: Request) {
 
   try {
     await assertUxWritingQuotaAvailable();
-    const issues = await runConsistencyCheck(parsed.data.items);
+    const guidelines = await fetchGuidelines();
+    const { results, missingIds } = await runUxWritingCheckBatch(
+      parsed.data.items,
+      guidelines
+    );
     await recordUxWritingCheckSuccess();
-    return NextResponse.json({ issues }, { headers: cors.headers });
+    return NextResponse.json({ results, missingIds }, { headers: cors.headers });
   } catch (e) {
     if (e instanceof UsageCapExceededError) {
       return NextResponse.json(
