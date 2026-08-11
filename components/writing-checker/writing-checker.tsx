@@ -2,10 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import styles from "@/components/writing-checker/writing-checker.module.css";
-import {
-  UX_WRITING_CHECK_API_PATH,
-  UX_WRITING_WEB_CHECK_API_PATH,
-} from "@/components/writing-checker/constants";
+import { UX_WRITING_WEB_CHECK_API_PATH } from "@/components/writing-checker/constants";
 
 type CheckResult = {
   original: string;
@@ -32,7 +29,11 @@ function messageForHttpStatus(status: number, fallback: string): string {
   return fallback;
 }
 
-export function WritingChecker() {
+export function WritingChecker({
+  compactHeader = false,
+}: {
+  compactHeader?: boolean;
+}) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,16 +104,14 @@ export function WritingChecker() {
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">
           UX Writing System
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
-          가이드라인 기반 문구 검수
-        </h1>
+        {!compactHeader ? (
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
+            가이드라인 기반 문구 검수
+          </h1>
+        ) : null}
         <p className="max-w-xl text-sm leading-relaxed text-zinc-400">
-          아래에 문구만 넣으면 가이드라인을 반영해 검수합니다. API 키는 필요
-          없습니다. 피그마 플러그인·외부 도구 연동은 관리자가 발급한 키로{" "}
-          <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-200">
-            {UX_WRITING_CHECK_API_PATH}
-          </code>
-          를 호출하면 됩니다.
+          아래에 문구를 입력하면 현재 활성화된 가이드라인을 반영해 검수합니다.
+          이 화면에서는 별도의 API 키가 필요하지 않습니다.
         </p>
       </header>
 
@@ -127,7 +126,7 @@ export function WritingChecker() {
           <textarea
             id="wc-text"
             className="min-h-[160px] w-full resize-y rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-3 text-sm leading-relaxed text-zinc-100 outline-none ring-zinc-500 placeholder:text-zinc-500 focus-visible:ring-2 disabled:opacity-60"
-            placeholder="버튼 라벨, 에러 메시지, 온보딩 카피 등을 붙여 넣으세요."
+            placeholder="예: 입력한 정보를 다시 확인해 주세요."
             value={text}
             disabled={loading}
             onChange={(e) => setText(e.target.value)}
@@ -174,10 +173,21 @@ export function WritingChecker() {
                 {result.original}
               </p>
             </article>
-            <article className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-5 shadow-sm">
-              <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-zinc-500">
-                제안
-              </h3>
+            <article className="rounded-xl border border-violet-500/30 bg-violet-500/10 p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-violet-300">
+                  제안
+                </h3>
+                <button
+                  type="button"
+                  className="rounded-md border border-violet-400/30 px-2.5 py-1 text-xs text-violet-100 transition hover:bg-violet-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                  onClick={() =>
+                    void navigator.clipboard.writeText(result.suggestion)
+                  }
+                >
+                  복사
+                </button>
+              </div>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zinc-100">
                 {result.suggestion}
               </p>
