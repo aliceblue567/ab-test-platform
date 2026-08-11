@@ -75,7 +75,9 @@ export default auth(async (req) => {
         pathname === "/workspace" ||
         pathname.startsWith("/workspace/") ||
         pathname === "/insight" ||
-        pathname.startsWith("/insight/");
+        pathname.startsWith("/insight/") ||
+        pathname === "/ux-writing" ||
+        pathname.startsWith("/ux-writing/");
       const login = new URL(
         goWorkspace ? "/workspace/login" : "/admin/login",
         req.nextUrl.origin
@@ -111,6 +113,8 @@ export const config = {
     "/admin/:path*",
     "/insight",
     "/insight/:path*",
+    "/ux-writing",
+    "/ux-writing/:path*",
     "/workspace",
     "/workspace/:path*",
   ],
