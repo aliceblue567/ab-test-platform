@@ -25,6 +25,10 @@ const RESULT_SCHEMA_HINT = `응답은 반드시 하나의 JSON 객체만 포함�
 - "reason": 왜 이렇게 바꾸었는지 간결한 이유 (한국어)
 - "violated_rule": 위반으로 판단한 규칙 이름(없으면 빈 문자열 "") 또는 규칙 요약`;
 
+const GROUNDING_GUARDRAIL = `입력에 없는 오류 원인, 재시도 가능 시점, 문의 경로, 설정 변경 등 사실이나 행동을 추정해 추가하지 마세요.
+실제로 제공 가능한 해결 방법을 판단할 문맥이 부족하면 suggestion을 원문과 동일하게 유지하고, reason에 필요한 문맥을 설명하세요.
+특히 근거 없이 "인터넷 연결을 확인", "잠시 후 다시 시도", "고객센터에 문의" 같은 문구를 만들면 안 됩니다.`;
+
 const MAX_USER = 12_000;
 const MAX_SUGGEST = 50_000;
 const MAX_REASON = 20_000;
@@ -74,6 +78,9 @@ export async function runUxWritingCheck(
 
 ## 회사 UX 라이팅 가이드라인
 ${guideBlock}
+
+## 사실성 및 문맥 안전장치
+${GROUNDING_GUARDRAIL}
 
 ## 출력 규칙
 ${RESULT_SCHEMA_HINT}

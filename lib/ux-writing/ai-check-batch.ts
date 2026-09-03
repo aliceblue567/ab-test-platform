@@ -79,6 +79,10 @@ const AI_TIMEOUT_MS = Math.min(
   Math.max(Number(process.env.UX_WRITING_AI_TIMEOUT_MS) || 90_000, 10_000),
   180_000
 );
+const GROUNDING_GUARDRAIL = `입력에 없는 오류 원인, 재시도 가능 시점, 문의 경로, 설정 변경 등 사실이나 행동을 추정해 추가하지 마세요.
+실제로 제공 가능한 해결 방법을 판단할 문맥이 부족하면 suggestion을 원문과 동일하게 유지하고, reason에 필요한 문맥을 설명하세요.
+특히 근거 없이 "인터넷 연결을 확인", "잠시 후 다시 시도", "고객센터에 문의" 같은 문구를 만들면 안 됩니다.`;
+
 export async function runUxWritingCheckBatch(
   items: BatchCheckItem[],
   guidelines: GuidelineRow[]
@@ -88,6 +92,9 @@ export async function runUxWritingCheckBatch(
 
 ## 회사 UX 라이팅 가이드라인
 ${guideBlock}
+
+## 사실성 및 문맥 안전장치
+${GROUNDING_GUARDRAIL}
 
 ## 출력 규칙
 JSON 객체 하나만 반환합니다. "results" 배열에는 입력으로 받은 모든 항목에 대해 정확히 하나씩, 같은 개수만큼의 결과가 있어야 합니다. 각 항목은:
