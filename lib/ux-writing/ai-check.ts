@@ -1,8 +1,6 @@
 /**
- * Claude API 호출은 이 모듈(서버 전용)에서만 수행합니다.
- * ANTHROPIC_API_KEY는 클라이언트에 노출되지 않습니다 — API Route에서만 import 하세요.
+ * AI API 호출은 서버 전용 provider adapter를 통해 수행합니다.
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { GuidelineRow } from "@/lib/ux-writing/guidelines";
 import {
@@ -13,6 +11,7 @@ import {
   UxWritingCheckFailed,
   mapAiError,
 } from "@/lib/ux-writing/ai-errors";
+import { requestJsonCompletion } from "@/lib/ux-writing/ai-provider";
 
 export type UxCheckResult = {
   original: string;
@@ -62,44 +61,10 @@ const AI_TIMEOUT_MS = Math.min(
   Math.max(Number(process.env.UX_WRITING_AI_TIMEOUT_MS) || 90_000, 10_000),
   180_000
 );
-// 가이드라인 준수 여부 판정 수준의 작업이라 Opus보다 저렴한 모델을 기본값으로 사용.
-// 더 강력한 모델이 필요하면 Vercel 환경변수 ANTHROPIC_MODEL로 덮어쓸 수 있음.
-const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-5";
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error("UX_WRITING_TIMEOUT"));
-    }, timeoutMs);
-
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-}
-
 export async function runUxWritingCheck(
   userText: string,
   guidelines: GuidelineRow[]
 ): Promise<UxCheckResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new UxWritingCheckFailed(
-      "서버 설정 오류입니다. 관리자에게 문의하세요.",
-      "unknown",
-      500
-    );
-  }
-
-  const client = new Anthropic({ apiKey });
-
   const safeUser = sanitizePromptText(userText, MAX_USER);
   const guideBlock = formatGuidelinesForSystemPrompt(guidelines);
 
@@ -119,36 +84,13 @@ ${RESULT_SCHEMA_HINT}
 """`;
 
   try {
-    // Claude 응답을 JSON 스키마로 강제하고, 애플리케이션에서 다시 검증한다.
-    const completion = await withTimeout(
-      client.messages.create({
-        model: CLAUDE_MODEL,
-        max_tokens: 4096,
-        system: [
-          { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
-        ],
-        output_config: {
-          format: {
-            type: "json_schema",
-            schema: modelOutputJsonSchema,
-          },
-        },
-        messages: [{ role: "user", content: prompt }],
-      }),
-      AI_TIMEOUT_MS
-    );
-
-    const textBlock = completion.content.find(
-      (block): block is Anthropic.TextBlock => block.type === "text"
-    );
-    const raw = textBlock?.text;
-    if (!raw) {
-      throw new UxWritingCheckFailed(
-        "AI 응답이 비어 있습니다. 잠시 후 다시 시도해 주세요.",
-        "validation",
-        502
-      );
-    }
+    const raw = await requestJsonCompletion({
+      systemPrompt,
+      userPrompt: prompt,
+      maxTokens: 4096,
+      jsonSchema: modelOutputJsonSchema,
+      timeoutMs: AI_TIMEOUT_MS,
+    });
 
     let parsed: unknown;
     try {

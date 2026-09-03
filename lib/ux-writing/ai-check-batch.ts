@@ -1,9 +1,8 @@
 /**
- * Claude API 호출은 이 모듈(서버 전용)에서만 수행합니다.
+ * AI API 호출은 서버 전용 provider adapter를 통해 수행합니다.
  * 여러 텍스트를 한 번의 API 호출로 검수한다 — 노드마다 개별 호출하면 가이드라인
  * 블록(고정 텍스트)이 매번 다시 과금되므로, 배치 호출로 묶어 토큰 낭비를 줄인다.
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { GuidelineRow } from "@/lib/ux-writing/guidelines";
 import {
@@ -14,6 +13,7 @@ import {
   UxWritingCheckFailed,
   mapAiError,
 } from "@/lib/ux-writing/ai-errors";
+import { requestJsonCompletion } from "@/lib/ux-writing/ai-provider";
 
 export type BatchCheckItem = { id: string; text: string };
 
@@ -79,42 +79,10 @@ const AI_TIMEOUT_MS = Math.min(
   Math.max(Number(process.env.UX_WRITING_AI_TIMEOUT_MS) || 90_000, 10_000),
   180_000
 );
-const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-5";
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error("UX_WRITING_TIMEOUT"));
-    }, timeoutMs);
-
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-}
-
 export async function runUxWritingCheckBatch(
   items: BatchCheckItem[],
   guidelines: GuidelineRow[]
 ): Promise<{ results: BatchCheckResult[]; missingIds: string[] }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new UxWritingCheckFailed(
-      "서버 설정 오류입니다. 관리자에게 문의하세요.",
-      "unknown",
-      500
-    );
-  }
-
-  const client = new Anthropic({ apiKey });
-
   const guideBlock = formatGuidelinesForSystemPrompt(guidelines);
   const systemPrompt = `당신은 UX 라이팅 검수 전문가입니다. 아래 회사 가이드라인을 반드시 준수하여, 여러 개의 UI 텍스트를 각각 독립적으로 검토합니다.
 
@@ -137,34 +105,13 @@ JSON 객체 하나만 반환합니다. "results" 배열에는 입력으로 받�
 ${itemsBlock}`;
 
   try {
-    const stream = client.messages.stream({
-      model: CLAUDE_MODEL,
-      max_tokens: 16_000,
-      system: [
-        { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
-      ],
-      output_config: {
-        format: {
-          type: "json_schema",
-          schema: outputJsonSchema,
-        },
-      },
-      messages: [{ role: "user", content: prompt }],
+    const raw = await requestJsonCompletion({
+      systemPrompt,
+      userPrompt: prompt,
+      maxTokens: 8192,
+      jsonSchema: outputJsonSchema,
+      timeoutMs: AI_TIMEOUT_MS,
     });
-
-    const completion = await withTimeout(stream.finalMessage(), AI_TIMEOUT_MS);
-
-    const textBlock = completion.content.find(
-      (block): block is Anthropic.TextBlock => block.type === "text"
-    );
-    const raw = textBlock?.text;
-    if (!raw) {
-      throw new UxWritingCheckFailed(
-        "AI 응답이 비어 있습니다. 잠시 후 다시 시도해 주세요.",
-        "validation",
-        502
-      );
-    }
 
     let parsed: unknown;
     try {

@@ -1,13 +1,13 @@
 /**
- * Claude API 호출은 이 모듈(서버 전용)에서만 수행합니다.
+ * AI API 호출은 서버 전용 provider adapter를 통해 수행합니다.
  * 여러 화면에서 수집된 텍스트를 한 번에 비교해 화면 간 표현 불일치(같은 기능,
  * 다른 표현)를 찾습니다. 개별 텍스트를 가이드라인과만 대조하는 ai-check.ts와는
  * 다른 검사입니다.
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { sanitizePromptText } from "@/lib/ux-writing/guidelines";
 import { UxWritingCheckFailed, mapAiError } from "@/lib/ux-writing/ai-errors";
+import { requestJsonCompletion } from "@/lib/ux-writing/ai-provider";
 
 export type ConsistencyItem = { id: string; text: string };
 
@@ -67,41 +67,9 @@ const AI_TIMEOUT_MS = Math.min(
   Math.max(Number(process.env.UX_WRITING_AI_TIMEOUT_MS) || 90_000, 10_000),
   180_000
 );
-const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-5";
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error("UX_WRITING_TIMEOUT"));
-    }, timeoutMs);
-
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-}
-
 export async function runConsistencyCheck(
   items: ConsistencyItem[]
 ): Promise<ConsistencyIssue[]> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new UxWritingCheckFailed(
-      "서버 설정 오류입니다. 관리자에게 문의하세요.",
-      "unknown",
-      500
-    );
-  }
-
-  const client = new Anthropic({ apiKey });
-
   const listBlock = items
     .map((it) => `[${it.id}] ${sanitizePromptText(it.text, MAX_TEXT)}`)
     .join("\n");
@@ -124,35 +92,13 @@ JSON 객체 하나만 반환합니다. "issues" 배열의 각 항목은 다음�
 ${listBlock}`;
 
   try {
-    const completion = await withTimeout(
-      client.messages.create({
-        model: CLAUDE_MODEL,
-        max_tokens: 8192,
-        system: [
-          { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
-        ],
-        output_config: {
-          format: {
-            type: "json_schema",
-            schema: outputJsonSchema,
-          },
-        },
-        messages: [{ role: "user", content: prompt }],
-      }),
-      AI_TIMEOUT_MS
-    );
-
-    const textBlock = completion.content.find(
-      (block): block is Anthropic.TextBlock => block.type === "text"
-    );
-    const raw = textBlock?.text;
-    if (!raw) {
-      throw new UxWritingCheckFailed(
-        "AI 응답이 비어 있습니다. 잠시 후 다시 시도해 주세요.",
-        "validation",
-        502
-      );
-    }
+    const raw = await requestJsonCompletion({
+      systemPrompt,
+      userPrompt: prompt,
+      maxTokens: 8192,
+      jsonSchema: outputJsonSchema,
+      timeoutMs: AI_TIMEOUT_MS,
+    });
 
     let parsed: unknown;
     try {
