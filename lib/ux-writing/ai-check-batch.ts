@@ -14,6 +14,10 @@ import {
   mapAiError,
 } from "@/lib/ux-writing/ai-errors";
 import { requestJsonCompletion } from "@/lib/ux-writing/ai-provider";
+import {
+  checkKoreanOrthography,
+  formatKoreanOrthographyMatches,
+} from "@/lib/ux-writing/korean-orthography";
 
 export type BatchCheckItem = { id: string; text: string };
 
@@ -83,11 +87,21 @@ const GROUNDING_GUARDRAIL = `입력에 없는 오류 원인, 재시도 가능 �
 실제로 제공 가능한 해결 방법을 판단할 문맥이 부족하면 suggestion을 원문과 동일하게 유지하고, reason에 필요한 문맥을 설명하세요.
 특히 근거 없이 "인터넷 연결을 확인", "잠시 후 다시 시도", "고객센터에 문의" 같은 문구를 만들면 안 됩니다.`;
 
+const KOREAN_ORTHOGRAPHY_GUARDRAIL = `국립국어원의 현행 한글 맞춤법을 외부 언어 기준으로 사용하되, 하나투어가 승인한 서비스명·상품명·용어·UI 표기를 우선하세요.
+공식 근거와 단일 교정안이 확인되지 않거나 복수 표기가 허용되거나 의미에 따라 띄어쓰기가 달라지면 오류로 단정하지 마세요.
+조항 번호나 예외를 추측해서 만들지 마세요.`;
+
 export async function runUxWritingCheckBatch(
   items: BatchCheckItem[],
   guidelines: GuidelineRow[]
 ): Promise<{ results: BatchCheckResult[]; missingIds: string[] }> {
   const guideBlock = formatGuidelinesForSystemPrompt(guidelines);
+  const localById = new Map(
+    items.map((item) => [
+      item.id,
+      checkKoreanOrthography(sanitizePromptText(item.text, MAX_TEXT)),
+    ])
+  );
   const systemPrompt = `당신은 UX 라이팅 검수 전문가입니다. 아래 회사 가이드라인을 반드시 준수하여, 여러 개의 UI 텍스트를 각각 독립적으로 검토합니다.
 
 ## 회사 UX 라이팅 가이드라인
@@ -95,6 +109,9 @@ ${guideBlock}
 
 ## 사실성 및 문맥 안전장치
 ${GROUNDING_GUARDRAIL}
+
+## 한국어 맞춤법 판정 경계
+${KOREAN_ORTHOGRAPHY_GUARDRAIL}
 
 ## 출력 규칙
 JSON 객체 하나만 반환합니다. "results" 배열에는 입력으로 받은 모든 항목에 대해 정확히 하나씩, 같은 개수만큼의 결과가 있어야 합니다. 각 항목은:
@@ -105,7 +122,13 @@ JSON 객체 하나만 반환합니다. "results" 배열에는 입력으로 받�
 각 텍스트는 서로 독립적으로 판단하세요 — 다른 항목과 비교하지 마세요.`;
 
   const itemsBlock = items
-    .map((it) => `[${it.id}] """${sanitizePromptText(it.text, MAX_TEXT).replace(/"""/g, '"')}"""`)
+    .map((it) => {
+      const local = localById.get(it.id)!;
+      const evidence = formatKoreanOrthographyMatches(local.matches);
+      return `[${it.id}] """${local.correctedText.replace(/"""/g, '"')}"""${
+        evidence ? `\n확정 맞춤법 교정(최종 제안에서 유지): ${evidence}` : ""
+      }`;
+    })
     .join("\n");
 
   const prompt = `## 검토 대상 항목 (${items.length}개)
@@ -142,7 +165,24 @@ ${itemsBlock}`;
 
     // 존재하지 않는 id를 반환한 결과는 버리고, 누락된 id는 별도로 알려준다.
     const requestedIds = new Set(items.map((it) => it.id));
-    const results = parsedResult.data.results.filter((r) => requestedIds.has(r.id));
+    const results = parsedResult.data.results
+      .filter((r) => requestedIds.has(r.id))
+      .map((result) => {
+        const local = localById.get(result.id);
+        if (!local || local.matches.length === 0) return result;
+
+        const localEvidence = formatKoreanOrthographyMatches(local.matches);
+        const localRuleIds = local.matches.map((match) => match.ruleId);
+        return {
+          ...result,
+          suggestion: checkKoreanOrthography(result.suggestion).correctedText,
+          reason: `맞춤법 교정: ${localEvidence}. ${result.reason}`.trim(),
+          violated_rule: [result.violated_rule, ...localRuleIds]
+            .filter(Boolean)
+            .filter((value, index, values) => values.indexOf(value) === index)
+            .join(", "),
+        };
+      });
     const returnedIds = new Set(results.map((r) => r.id));
     const missingIds = items
       .map((it) => it.id)

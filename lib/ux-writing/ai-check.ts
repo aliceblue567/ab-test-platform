@@ -12,6 +12,10 @@ import {
   mapAiError,
 } from "@/lib/ux-writing/ai-errors";
 import { requestJsonCompletion } from "@/lib/ux-writing/ai-provider";
+import {
+  checkKoreanOrthography,
+  formatKoreanOrthographyMatches,
+} from "@/lib/ux-writing/korean-orthography";
 
 export type UxCheckResult = {
   original: string;
@@ -28,6 +32,10 @@ const RESULT_SCHEMA_HINT = `응답은 반드시 하나의 JSON 객체만 포함�
 const GROUNDING_GUARDRAIL = `입력에 없는 오류 원인, 재시도 가능 시점, 문의 경로, 설정 변경 등 사실이나 행동을 추정해 추가하지 마세요.
 실제로 제공 가능한 해결 방법을 판단할 문맥이 부족하면 suggestion을 원문과 동일하게 유지하고, reason에 필요한 문맥을 설명하세요.
 특히 근거 없이 "인터넷 연결을 확인", "잠시 후 다시 시도", "고객센터에 문의" 같은 문구를 만들면 안 됩니다.`;
+
+const KOREAN_ORTHOGRAPHY_GUARDRAIL = `국립국어원의 현행 한글 맞춤법을 외부 언어 기준으로 사용하되, 하나투어가 승인한 서비스명·상품명·용어·UI 표기를 우선하세요.
+공식 근거와 단일 교정안이 확인되지 않거나 복수 표기가 허용되거나 의미에 따라 띄어쓰기가 달라지면 오류로 단정하지 마세요.
+조항 번호나 예외를 추측해서 만들지 마세요.`;
 
 const MAX_USER = 12_000;
 const MAX_SUGGEST = 50_000;
@@ -71,6 +79,10 @@ export async function runUxWritingCheck(
 ): Promise<UxCheckResult> {
   const safeUser = sanitizePromptText(userText, MAX_USER);
   const guideBlock = formatGuidelinesForSystemPrompt(guidelines);
+  const localOrthography = checkKoreanOrthography(safeUser);
+  const localEvidence = formatKoreanOrthographyMatches(
+    localOrthography.matches
+  );
 
   // 가이드라인 + 출력 규칙은 호출마다 동일하므로 system + cache_control로 캐싱해
   // 같은 프로세스에서 연달아 호출될 때(가이드라인 검수 배치 등) 토큰 비용을 줄인다.
@@ -82,12 +94,16 @@ ${guideBlock}
 ## 사실성 및 문맥 안전장치
 ${GROUNDING_GUARDRAIL}
 
+## 한국어 맞춤법 판정 경계
+${KOREAN_ORTHOGRAPHY_GUARDRAIL}
+${localEvidence ? `로컬에서 공식 표기로 확정한 교정은 유지하세요: ${localEvidence}` : "로컬 확정 교정 없음"}
+
 ## 출력 규칙
 ${RESULT_SCHEMA_HINT}
 가이드 위반이 없으면 suggestion은 원문과 같게 두고, violated_rule은 빈 문자열로 두어도 됩니다.`;
 
   const prompt = `## 검토 대상 문구
-"""${safeUser.replace(/"""/g, '"')}
+"""${localOrthography.correctedText.replace(/"""/g, '"')}
 """`;
 
   try {
@@ -120,12 +136,21 @@ ${RESULT_SCHEMA_HINT}
     }
 
     const { suggestion, reason, violated_rule } = parsedResult.data;
+    const enforcedSuggestion = checkKoreanOrthography(suggestion).correctedText;
+    const localRuleIds = localOrthography.matches.map((match) => match.ruleId);
+    const mergedRule = [violated_rule, ...localRuleIds]
+      .filter(Boolean)
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .join(", ");
+    const mergedReason = localEvidence
+      ? `맞춤법 교정: ${localEvidence}. ${reason}`.trim()
+      : reason;
 
     return {
       original: userText,
-      suggestion,
-      reason,
-      violated_rule,
+      suggestion: enforcedSuggestion,
+      reason: mergedReason,
+      violated_rule: mergedRule,
     };
   } catch (err) {
     if (err instanceof UxWritingCheckFailed) throw err;
