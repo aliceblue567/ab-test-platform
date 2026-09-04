@@ -15,11 +15,25 @@ type ExactCorrection = KoreanOrthographyMatch & {
  */
 const EXACT_CORRECTIONS: ExactCorrection[] = [
   {
+    ruleId: "KOR-ORTH-MORPH-004",
+    original: "눈꼽",
+    replacement: "눈곱",
+    pattern: /눈꼽/g,
+    evidence: "국립국어원 2025 한국어-외국어 병렬 말뭉치 구축 지침의 규범 표기 예",
+  },
+  {
     ruleId: "KOR-ORTH-MISC-001",
     original: "몇일",
     replacement: "며칠",
-    pattern: /몇일/g,
+    pattern: /몇일(?=$|[\s,.!?…])/g,
     evidence: "국립국어원 현행 한글 맞춤법·공식 사전 표기",
+  },
+  {
+    ruleId: "KOR-ORTH-MISC-002",
+    original: "몇 일",
+    replacement: "며칠",
+    pattern: /몇 일(?=$|[\s,.!?…])/g,
+    evidence: "국립국어원 2025 한국어-외국어 병렬 말뭉치 구축 지침의 규범 표기 예",
   },
   {
     ruleId: "KOR-ORTH-MORPH-001",
@@ -41,6 +55,20 @@ const EXACT_CORRECTIONS: ExactCorrection[] = [
     replacement: "왠지",
     pattern: /웬지/g,
     evidence: "국립국어원 현행 한글 맞춤법·공식 사전 표기",
+  },
+  {
+    ruleId: "KOR-ORTH-MORPH-005",
+    original: "머릿말",
+    replacement: "머리말",
+    pattern: /머릿말/g,
+    evidence: "국립국어원 2025 한국어-외국어 병렬 말뭉치 구축 지침의 규범 표기 예",
+  },
+  {
+    ruleId: "KOR-ORTH-MORPH-006",
+    original: "진척율",
+    replacement: "진척률",
+    pattern: /진척율/g,
+    evidence: "국립국어원 2025 한국어-외국어 병렬 말뭉치 구축 지침의 규범 표기 예",
   },
 ];
 
