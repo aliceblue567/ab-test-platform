@@ -153,6 +153,16 @@ ${RESULT_SCHEMA_HINT}
       violated_rule: mergedRule,
     };
   } catch (err) {
+    if (localOrthography.matches.length > 0) {
+      return {
+        original: userText,
+        suggestion: localOrthography.correctedText,
+        reason: `맞춤법 교정: ${localEvidence}. AI 검수는 일시적으로 사용할 수 없어 확정된 로컬 규칙만 적용했습니다.`,
+        violated_rule: localOrthography.matches
+          .map((match) => match.ruleId)
+          .join(", "),
+      };
+    }
     if (err instanceof UxWritingCheckFailed) throw err;
     throw mapAiError(err);
   }

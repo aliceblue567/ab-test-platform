@@ -190,6 +190,27 @@ ${itemsBlock}`;
 
     return { results, missingIds };
   } catch (err) {
+    const localResults = items.flatMap<BatchCheckResult>((item) => {
+      const local = localById.get(item.id);
+      if (!local || local.matches.length === 0) return [];
+      return [
+        {
+          id: item.id,
+          suggestion: local.correctedText,
+          reason: `맞춤법 교정: ${formatKoreanOrthographyMatches(local.matches)}. AI 검수는 일시적으로 사용할 수 없어 확정된 로컬 규칙만 적용했습니다.`,
+          violated_rule: local.matches.map((match) => match.ruleId).join(", "),
+        },
+      ];
+    });
+    if (localResults.length > 0) {
+      const returnedIds = new Set(localResults.map((result) => result.id));
+      return {
+        results: localResults,
+        missingIds: items
+          .map((item) => item.id)
+          .filter((id) => !returnedIds.has(id)),
+      };
+    }
     if (err instanceof UxWritingCheckFailed) throw err;
     throw mapAiError(err);
   }
